@@ -1,0 +1,8 @@
+{
+  "name": "api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo 'API ready - Step 08 will add the real server'"
+  }
+}

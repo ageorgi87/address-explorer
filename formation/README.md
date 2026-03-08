@@ -6,14 +6,109 @@
 
 ---
 
+## Philosophie de la formation
+
+Cette formation n'est PAS un tutoriel "copie-colle et ca marche". C'est une **formation pedagogique** ou chaque concept est explique en profondeur.
+
+### Ce que tu vas apprendre a chaque step
+
+Pour chaque etape, on couvre systematiquement :
+
+1. **Le "Pourquoi"** — Pourquoi on fait ce choix technique ?
+2. **Les alternatives** — Quelles autres options existent et pourquoi on ne les choisit pas ?
+3. **Comparaison React/Next.js** — Comment tu ferais en React et pourquoi Vue/Nuxt fait differemment ?
+4. **Comment ca marche** — L'implementation technique avec explications ligne par ligne
+5. **Les pieges courants** — Les erreurs classiques et comment les eviter
+
+### Exemple : Step 01 - Monorepo
+
+Au lieu de juste faire `mkdir apps && npm init`, on explique :
+
+- **Pourquoi separer front et API ?** Comparaison avec les API Routes de Next.js, limites du serverless, scaling independant
+- **Pourquoi un monorepo ?** Atomic commits, types partages, vs deux repos separes
+- **Pourquoi npm workspaces ?** Comparaison avec pnpm, Yarn, Turborepo, Nx
+- **Comment ca marche ?** Le role de `workspaces: ["apps/*"]`, les symlinks, ou vont les node_modules
+
+---
+
+## Instructions pour Claude Code
+
+> **IMPORTANT** : Ces instructions definissent comment Claude Code doit executer chaque step.
+
+### Mode d'execution
+
+Quand l'utilisateur demande de faire un step :
+
+1. **Lire le fichier du step** en entier
+2. **Expliquer le contexte** avant toute action :
+   - Quel est l'objectif ?
+   - Pourquoi on fait ca ? (pas juste "comment")
+   - Quelles alternatives existent et pourquoi ce choix ?
+   - Comparaison avec React/Next.js si pertinent
+3. **Expliquer chaque fichier** avant de le creer :
+   - Son role dans l'architecture
+   - Chaque ligne ou bloc important
+   - Les choix de conception
+4. **Expliquer chaque commande** avant de l'executer :
+   - Ce qu'elle fait techniquement
+   - Pourquoi c'est necessaire
+5. **Verifier le checkpoint** et expliquer ce qu'on observe
+
+### Ce que Claude Code ne doit PAS faire
+
+- ❌ Executer les commandes sans expliquer
+- ❌ Creer les fichiers sans detailler leur contenu
+- ❌ Sauter les sections "Pourquoi" des steps
+- ❌ Resumer ou accelerer pour "gagner du temps"
+
+### Ce que Claude Code DOIT faire
+
+- ✅ Traiter chaque step comme une **mini-lecon**
+- ✅ Faire des paralleles avec React/Next.js
+- ✅ Expliquer les choix techniques et leurs trade-offs
+- ✅ Repondre aux questions de l'utilisateur avant de continuer
+- ✅ S'assurer que l'utilisateur comprend avant de passer au checkpoint
+
+### Exemple de dialogue attendu
+
+```
+Utilisateur : "Fais le step 1"
+
+Claude Code :
+"## Step 01 : Initialiser le monorepo
+
+### Objectif
+On va creer une structure monorepo avec npm workspaces...
+
+### Pourquoi separer front et API ?
+En Next.js, tu as l'habitude d'avoir tout dans un seul projet avec les API Routes...
+[Explication des limites]
+[Comparaison avec notre approche]
+
+### Pourquoi un monorepo plutot que 2 repos ?
+[Explication des trade-offs]
+
+### Pourquoi npm workspaces ?
+[Comparaison des outils]
+
+### Maintenant, je vais creer les fichiers :
+
+1. **package.json racine** - Il declare les workspaces...
+   [Explication de chaque champ]
+
+[Continue avec explications...]
+```
+
+---
+
 ## Quick Start
 
 ```bash
 # Dis a Claude Code :
-"On commence la formation, ouvre formation/steps/01-monorepo-init.md"
+"Je veux faire le step 1"
 ```
 
-Claude lira le step, executera les commandes, et tu verifieras le checkpoint.
+Claude lira le step, t'expliquera tout en detail, et executera les commandes une fois que tu as compris.
 
 ---
 
