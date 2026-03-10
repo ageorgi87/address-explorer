@@ -1,0 +1,33 @@
+// ============================================
+// GENERATORS
+// ============================================
+
+// Génère le client TypeScript dans node_modules/.prisma/client
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ============================================
+// DATASOURCE
+// ============================================
+
+// Connexion PostgreSQL via variable d'environnement
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// MODÈLE DE TEST
+// ============================================
+
+// Un modèle simple pour vérifier que tout fonctionne
+// On le remplacera par les vrais modèles au Step 06
+model Test {
+  id        Int      @id @default(autoincrement())
+  name      String
+  createdAt DateTime @default(now())
+
+  // @@map renomme la table en SQL (convention snake_case)
+  @@map("tests")
+}

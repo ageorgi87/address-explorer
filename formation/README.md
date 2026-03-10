@@ -65,8 +65,9 @@ Une fois que l'utilisateur a dit "ok", "c'est bon", "go", etc. :
 Pour **CHAQUE tache** de l'implementation, suivre ce cycle :
 
 1. **Expliquer** ce qu'on va faire, comment, et pourquoi
-2. **Coder** (creer/modifier le fichier)
-3. **Passer a la tache suivante**
+2. **ATTENDRE la validation de l'utilisateur** ("ok", "go", etc.)
+3. **Coder** (creer/modifier le fichier)
+4. **Passer a la tache suivante** (et recommencer le cycle)
 
 Exemple de cycle pour une tache :
 ```
