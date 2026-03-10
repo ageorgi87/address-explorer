@@ -152,7 +152,7 @@ useSeoMeta({
 
         <span
           class="text-2xl font-mono w-20 text-center"
-          :class="temperature.isNegative ? 'text-blue-600' : 'text-orange-600'"
+          :class="temperature.isNegative.value ? 'text-blue-600' : 'text-orange-600'"
         >
           {{ temperature.count }}°C
         </span>
@@ -167,8 +167,10 @@ useSeoMeta({
 
       <p class="mt-4 text-sm text-gray-500">
         État :
-        <span v-if="temperature.isNegative" class="text-blue-600">Gel</span>
-        <span v-else-if="temperature.isZero" class="text-gray-600">Point de congélation</span>
+        <!-- IMPORTANT: .value est requis ici car temperature n'est pas destructuré -->
+        <!-- Vue n'auto-unwrap les refs que dans les objets réactifs -->
+        <span v-if="temperature.isNegative.value" class="text-blue-600">Gel</span>
+        <span v-else-if="temperature.isZero.value" class="text-gray-600">Point de congélation</span>
         <span v-else class="text-orange-600">Au-dessus de zéro</span>
       </p>
     </div>
