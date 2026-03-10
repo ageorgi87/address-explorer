@@ -1,33 +1,108 @@
-// ============================================
-// GENERATORS
-// ============================================
-
-// Génère le client TypeScript dans node_modules/.prisma/client
 generator client {
   provider = "prisma-client-js"
 }
 
-// ============================================
-// DATASOURCE
-// ============================================
-
-// Connexion PostgreSQL via variable d'environnement
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// ============================================
-// MODÈLE DE TEST
-// ============================================
+// ============================================================
+// DÉPARTEMENT
+// ============================================================
+// 101 départements en France (métropole + outre-mer)
+//
+// Le code est utilisé comme ID car il est :
+// - Unique et stable (ne change jamais)
+// - Court (2-3 caractères)
+// - Signifiant (75 = Paris, 2A = Corse-du-Sud)
+// ============================================================
+model Departement {
+  code     String    @id    // "75", "13", "2A" (Corse)
+  nom      String           // "Paris", "Bouches-du-Rhône"
 
-// Un modèle simple pour vérifier que tout fonctionne
-// On le remplacera par les vrais modèles au Step 06
-model Test {
-  id        Int      @id @default(autoincrement())
-  name      String
-  createdAt DateTime @default(now())
+  // Relation 1-N : un département a plusieurs communes
+  communes Commune[]
 
-  // @@map renomme la table en SQL (convention snake_case)
-  @@map("tests")
+  @@map("departements")
+}
+
+// ============================================================
+// COMMUNE
+// ============================================================
+// ~35 000 communes en France
+//
+// L'ID est le code INSEE (unique nationalement)
+// Différent du code postal ! (75001 ≠ 75101)
+// ============================================================
+model Commune {
+  id              String      @id    // Code INSEE : "75101"
+  nom             String             // "Paris 1er Arrondissement"
+  codePostal      String             // "75001" (pour l'affichage)
+
+  // Clé étrangère vers Departement
+  departementCode String
+  departement     Departement @relation(fields: [departementCode], references: [code])
+
+  // Relation 1-N : une commune a plusieurs voies
+  voies           Voie[]
+
+  // INDEX de performance (expliqués ci-dessous)
+  @@index([departementCode])
+  @@index([nom])
+
+  @@map("communes")
+}
+
+// ============================================================
+// VOIE
+// ============================================================
+// ~2.5 millions de voies en France
+//
+// L'ID est le code FANTOIR : commune + numéro de voie
+// Ex: "75101_0123" = voie 123 de Paris 1er
+// ============================================================
+model Voie {
+  id        String   @id    // "75101_0123"
+  nom       String          // "Rue de Rivoli"
+
+  // Clé étrangère vers Commune
+  communeId String
+  commune   Commune  @relation(fields: [communeId], references: [id])
+
+  // Relation 1-N : une voie a plusieurs numéros
+  numeros   Numero[]
+
+  // INDEX de performance
+  @@index([communeId])
+  @@index([nom])
+
+  @@map("voies")
+}
+
+// ============================================================
+// NUMÉRO
+// ============================================================
+// ~26 millions de numéros en France
+//
+// C'est l'adresse complète avec coordonnées GPS
+// Le suffixe peut être : bis, ter, A, B, ...
+// ============================================================
+model Numero {
+  id      String  @id     // "75101_0123_00001"
+  numero  String          // "1", "42", "100"
+  suffixe String?         // "bis", "ter", "A", null
+
+  // Coordonnées GPS (projection WGS84)
+  lat     Float           // 48.856614 (latitude)
+  lon     Float           // 2.352222 (longitude)
+
+  // Clé étrangère vers Voie
+  voieId  String
+  voie    Voie    @relation(fields: [voieId], references: [id])
+
+  // INDEX de performance
+  @@index([voieId])
+
+  @@map("numeros")
 }
