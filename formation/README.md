@@ -35,68 +35,163 @@ Au lieu de juste faire `mkdir apps && npm init`, on explique :
 
 > **IMPORTANT** : Ces instructions definissent comment Claude Code doit executer chaque step.
 
-### Mode d'execution
+### Mode d'execution en 2 PHASES
 
-Quand l'utilisateur demande de faire un step :
+Quand l'utilisateur demande de faire un step, Claude Code doit suivre **2 phases distinctes** :
+
+---
+
+#### PHASE 1 : PRESENTATION (pas de code !)
 
 1. **Lire le fichier du step** en entier
-2. **Expliquer le contexte** avant toute action :
+2. **Presenter la theorie** :
    - Quel est l'objectif ?
    - Pourquoi on fait ca ? (pas juste "comment")
    - Quelles alternatives existent et pourquoi ce choix ?
    - Comparaison avec React/Next.js si pertinent
-3. **Expliquer chaque fichier** avant de le creer :
-   - Son role dans l'architecture
-   - Chaque ligne ou bloc important
-   - Les choix de conception
-4. **Expliquer chaque commande** avant de l'executer :
-   - Ce qu'elle fait techniquement
-   - Pourquoi c'est necessaire
-5. **Verifier le checkpoint** et expliquer ce qu'on observe
+   - Expliquer les concepts cles avec des exemples
+3. **ATTENDRE la validation de l'utilisateur** avant de passer a la phase 2
+   - Demander : "Tu veux que je passe a l'implementation ?" ou similaire
+   - Repondre aux questions si l'utilisateur en a
+
+**AUCUN FICHIER NE DOIT ETRE CREE/MODIFIE PENDANT LA PHASE 1**
+
+---
+
+#### PHASE 2 : IMPLEMENTATION (apres validation)
+
+Une fois que l'utilisateur a dit "ok", "c'est bon", "go", etc. :
+
+Pour **CHAQUE tache** de l'implementation, suivre ce cycle :
+
+1. **Expliquer** ce qu'on va faire, comment, et pourquoi
+2. **Coder** (creer/modifier le fichier)
+3. **Passer a la tache suivante**
+
+Exemple de cycle pour une tache :
+```
+"### Tache 1 : Modifier index.vue
+
+**Ce qu'on va faire** : Ajouter un compteur reactif
+**Comment** : Utiliser ref() pour l'etat et computed() pour les valeurs derivees
+**Pourquoi** : Demontrer la difference avec useState/useMemo de React
+
+[Code le fichier]
+
+### Tache 2 : ..."
+```
+
+A la fin de toutes les taches :
+- **Executer les commandes** necessaires (npm install, etc.)
+- **Verifier le checkpoint** et expliquer ce qu'on observe
+
+---
+
+#### PHASE 3 : COMMIT ET PUSH (avant le step suivant)
+
+**IMPORTANT** : Toujours commit et push avant de passer au step suivant.
+
+**Convention de nommage des commits** (Conventional Commits) :
+
+```
+<type>(<scope>): <description courte>
+
+<corps optionnel : details des changements>
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+```
+
+**Types autorises** :
+- `feat` : nouvelle fonctionnalite
+- `fix` : correction de bug
+- `docs` : documentation uniquement
+- `refactor` : refactoring sans changement de comportement
+- `chore` : maintenance (deps, config)
+
+**Scopes recommandes** :
+- `web` : apps/web (Nuxt)
+- `api` : apps/api (GraphQL)
+- `formation` : fichiers de formation
+- `monorepo` : configuration racine
+
+**Exemples** :
+```bash
+# Step 03-04
+feat(web): add Vue reactivity demo and useCounter composable
+
+# Step 05
+feat(api): setup Prisma with PostgreSQL connection
+
+# Step 08
+feat(api): add GraphQL Yoga server with health endpoint
+```
+
+---
 
 ### Ce que Claude Code ne doit PAS faire
 
+- ❌ **Creer ou modifier des fichiers pendant la phase 1**
 - ❌ Executer les commandes sans expliquer
-- ❌ Creer les fichiers sans detailler leur contenu
 - ❌ Sauter les sections "Pourquoi" des steps
 - ❌ Resumer ou accelerer pour "gagner du temps"
+- ❌ Passer a l'implementation sans validation explicite de l'utilisateur
 
 ### Ce que Claude Code DOIT faire
 
+- ✅ **Separer clairement presentation et implementation**
+- ✅ **Attendre "ok" ou equivalent avant de coder**
 - ✅ Traiter chaque step comme une **mini-lecon**
 - ✅ Faire des paralleles avec React/Next.js
 - ✅ Expliquer les choix techniques et leurs trade-offs
 - ✅ Repondre aux questions de l'utilisateur avant de continuer
-- ✅ S'assurer que l'utilisateur comprend avant de passer au checkpoint
 
 ### Exemple de dialogue attendu
 
 ```
-Utilisateur : "Fais le step 1"
+Utilisateur : "Fais le step 3"
 
-Claude Code :
-"## Step 01 : Initialiser le monorepo
+Claude Code (PHASE 1 - presentation) :
+"## Step 03 : Comprendre la reactivite Vue
 
 ### Objectif
-On va creer une structure monorepo avec npm workspaces...
+Comprendre la difference fondamentale entre React et Vue...
 
-### Pourquoi separer front et API ?
-En Next.js, tu as l'habitude d'avoir tout dans un seul projet avec les API Routes...
-[Explication des limites]
-[Comparaison avec notre approche]
+### La grande difference philosophique
+En React, quand l'etat change, tout le composant est re-execute...
+En Vue, le composant s'execute UNE SEULE FOIS...
 
-### Pourquoi un monorepo plutot que 2 repos ?
-[Explication des trade-offs]
+### Pourquoi .value est necessaire
+JavaScript ne peut pas intercepter les primitives...
+Vue utilise un Proxy pour wrapper la valeur...
 
-### Pourquoi npm workspaces ?
-[Comparaison des outils]
+### Equivalences React ↔ Vue
+| React | Vue |
+| useState | ref() |
+| useMemo | computed() |
+...
 
-### Maintenant, je vais creer les fichiers :
+---
 
-1. **package.json racine** - Il declare les workspaces...
-   [Explication de chaque champ]
+Tu as des questions ? Sinon, je passe a l'implementation."
 
-[Continue avec explications...]
+Utilisateur : "ok"
+
+Claude Code (PHASE 2 - implementation) :
+"### Tache 1 : Modifier index.vue
+
+**Ce qu'on va faire** : Remplacer la page de bienvenue par un compteur interactif
+**Comment** : Utiliser ref() pour count et multiplier, computed() pour doubled et tripled
+**Pourquoi** : Demontrer que Vue detecte automatiquement les dependances (pas de tableau [deps])
+
+[Cree/modifie le fichier]
+
+### Tache 2 : Verifier le checkpoint
+
+**Ce qu'on va faire** : Lancer le serveur et tester dans le navigateur
+**Comment** : npm run dev:web puis ouvrir localhost:3000
+**Pourquoi** : Valider que la reactivite fonctionne (console.log dans computed)
+
+[Execute les commandes]"
 ```
 
 ---
