@@ -2,6 +2,12 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// Génère les types TypeScript pour Pothos
+// Ces types permettent l'autocomplétion dans les resolvers GraphQL
+generator pothos {
+  provider = "prisma-pothos-types"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
