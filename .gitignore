@@ -28,3 +28,6 @@ npm-debug.log*
 # Prisma
 apps/api/prisma/*.db
 apps/api/prisma/*.db-journal
+
+# BAN data (CSV files)
+apps/api/data/
