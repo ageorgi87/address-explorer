@@ -57,7 +57,7 @@ useSeoMeta({
 
     <UAlert
       v-else-if="error"
-      color="error"
+      color="red"
       title="Erreur"
       :description="String(error)"
     />
