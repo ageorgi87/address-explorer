@@ -60,6 +60,8 @@ export type Query = {
   departement: Maybe<Departement>;
   /** Liste de tous les départements */
   departements: Array<Departement>;
+  /** Recherche full-text de communes */
+  searchCommunes: Array<Commune>;
 };
 
 
@@ -76,6 +78,12 @@ export type QueryCommunesArgs = {
 
 export type QueryDepartementArgs = {
   code: Scalars['String']['input'];
+};
+
+
+export type QuerySearchCommunesArgs = {
+  first?: InputMaybe<Scalars['Int']['input']>;
+  search: Scalars['String']['input'];
 };
 
 /** Voie (rue, avenue, etc.) */
@@ -205,6 +213,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   communes?: Resolver<Array<ResolversTypes['Commune']>, ParentType, ContextType, Partial<QueryCommunesArgs>>;
   departement?: Resolver<Maybe<ResolversTypes['Departement']>, ParentType, ContextType, RequireFields<QueryDepartementArgs, 'code'>>;
   departements?: Resolver<Array<ResolversTypes['Departement']>, ParentType, ContextType>;
+  searchCommunes?: Resolver<Array<ResolversTypes['Commune']>, ParentType, ContextType, RequireFields<QuerySearchCommunesArgs, 'first' | 'search'>>;
 }>;
 
 export type VoieResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Voie'] = ResolversParentTypes['Voie']> = ResolversObject<{

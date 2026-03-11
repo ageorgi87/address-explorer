@@ -1,7 +1,6 @@
 # Step 12 : Première query avec useAsyncQuery
 
 > **Commit** : `step-12-first-query`
-> **Durée** : ~30 min
 > **Prérequis** : Step 11 complété, API qui tourne
 
 ---
@@ -17,35 +16,52 @@ Afficher la liste des départements depuis l'API GraphQL.
 
 ---
 
-## Le fichier à modifier
+## Les fichiers à créer/modifier
 
-### `apps/web/app/pages/index.vue`
+### 1. Créer la query `apps/web/app/queries/departements.ts`
 
-```vue
-<script setup lang="ts">
-// Query GraphQL
-const DEPARTEMENTS_QUERY = gql`
+```typescript
+import { gql } from 'graphql-tag'
+
+export interface Departement {
+  code: string
+  nom: string
+  communeCount: number
+}
+
+export interface DepartementsData {
+  departements: Departement[]
+}
+
+export const DEPARTEMENTS_QUERY = gql`
   query Departements {
     departements {
       code
       nom
-      displayName
       communeCount
     }
   }
 `
+```
 
-// Fetch des données avec SSR
-const { data, pending, error } = await useAsyncQuery(DEPARTEMENTS_QUERY)
+### 2. Modifier `apps/web/app/pages/index.vue`
 
-// Extraire les départements de la réponse
+```vue
+<script setup lang="ts">
+import { DEPARTEMENTS_QUERY, type DepartementsData } from '../queries/departements'
+
+const { data, pending, error } = await useAsyncQuery<DepartementsData>(DEPARTEMENTS_QUERY)
+
 const departements = computed(() => data.value?.departements ?? [])
 
-// Stats
-const stats = computed(() => ({
-  departements: departements.value.length,
-  communes: departements.value.reduce((sum, d) => sum + (d.communeCount ?? 0), 0),
-}))
+const totalCommunes = computed(() =>
+  departements.value.reduce((sum, dept) => sum + dept.communeCount, 0),
+)
+
+useSeoMeta({
+  title: 'Explorateur d\'adresses',
+  description: 'Explore les adresses françaises',
+})
 </script>
 
 <template>
@@ -59,30 +75,25 @@ const stats = computed(() => ({
     </header>
 
     <main class="max-w-7xl mx-auto px-4 py-8">
-      <!-- Chargement -->
-      <div v-if="pending" class="animate-pulse h-32 bg-gray-200 rounded"></div>
+      <div v-if="pending" class="animate-pulse h-32 bg-gray-200 rounded" />
 
-      <!-- Erreur -->
       <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-6">
-        <p class="text-red-700">{{ error.message }}</p>
+        <p class="text-red-700">{{ error }}</p>
       </div>
 
-      <!-- Données -->
       <div v-else>
-        <!-- Stats -->
         <div class="mb-8 grid grid-cols-2 gap-4 max-w-md">
           <div class="bg-white rounded-lg shadow p-4">
-            <div class="text-3xl font-bold text-blue-600">{{ stats.departements }}</div>
+            <div class="text-3xl font-bold text-blue-600">{{ departements.length }}</div>
             <div class="text-gray-600">Départements</div>
           </div>
           <div class="bg-white rounded-lg shadow p-4">
-            <div class="text-3xl font-bold text-green-600">{{ stats.communes }}</div>
+            <div class="text-3xl font-bold text-green-600">{{ totalCommunes.toLocaleString() }}</div>
             <div class="text-gray-600">Communes</div>
           </div>
         </div>
 
-        <!-- Liste des départements -->
-        <div class="space-y-4">
+        <div class="space-y-2">
           <div
             v-for="dept in departements"
             :key="dept.code"
@@ -123,17 +134,28 @@ Les données doivent être présentes dans le HTML source, pas chargées en Java
 ### `useAsyncQuery` vs `useAsyncData`
 
 ```typescript
-// useAsyncQuery : spécifique Apollo, gère tout
-const { data, pending, error } = await useAsyncQuery(QUERY)
+// useAsyncQuery : spécifique à Apollo
+const { data, pending, error } = await useAsyncQuery<DepartementsData>(DEPARTEMENTS_QUERY)
 
 // useAsyncData : générique Nuxt, plus de contrôle
 const { data } = await useAsyncData('key', async () => {
-  const { resolveClient } = useApollo()
-  return resolveClient().query({ query: QUERY })
+  // fetch manuel
 })
 ```
 
-`useAsyncQuery` est plus simple pour les cas courants.
+`useAsyncQuery` est plus simple pour les queries GraphQL.
+
+### Typage avec le générique
+
+```typescript
+// Sans typage : data.value est de type {}
+const { data } = await useAsyncQuery(DEPARTEMENTS_QUERY)
+
+// Avec typage : data.value est de type DepartementsData
+const { data } = await useAsyncQuery<DepartementsData>(DEPARTEMENTS_QUERY)
+```
+
+Le générique `<DepartementsData>` permet à TypeScript de savoir que `data.value.departements` existe.
 
 ### `computed` : Valeurs dérivées
 

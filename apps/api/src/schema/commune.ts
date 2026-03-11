@@ -7,6 +7,9 @@ export const communeTypeDefs = gql`
 
     "Liste des communes (filtrables)"
     communes(departementCode: String, codePostal: String): [Commune!]!
+
+    "Recherche full-text de communes"
+    searchCommunes(search: String!, first: Int = 10): [Commune!]!
   }
 
   "Commune française"

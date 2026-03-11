@@ -18,6 +18,16 @@ export const communeResolvers: Resolvers = {
         take: 100,
       })
     },
+
+    searchCommunes: (_parent, args, ctx) => {
+      return ctx.prisma.commune.findMany({
+        where: {
+          nom: { contains: args.search, mode: 'insensitive' },
+        },
+        orderBy: { nom: 'asc' },
+        take: args.first ?? 10,
+      })
+    },
   },
 
   Commune: {

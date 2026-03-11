@@ -1,14 +1,13 @@
 # Step 13 : Recherche avec v-model et debounce
 
 > **Commit** : `step-13-search`
-> **Durée** : ~40 min
 > **Prérequis** : Step 12 complété, API qui tourne
 
 ---
 
 ## Objectif
 
-Créer une barre de recherche réactive pour trouver des voies.
+Créer une barre de recherche réactive pour trouver des communes.
 
 À la fin de ce step :
 - Tu as une SearchBar avec debounce intégré
@@ -93,33 +92,11 @@ function SearchBar({ value, onChange }: Props) {
 <SearchBar value={search} onChange={setSearch} />
 ```
 
-### Vue < 3.4 : props + emit
-
-```vue
-<script setup lang="ts">
-// Vue classique : définir props et emit
-const props = defineProps<{
-  modelValue: string   // Convention : "modelValue" pour v-model
-}>()
-
-const emit = defineEmits<{
-  'update:modelValue': [value: string]   // Convention : "update:modelValue"
-}>()
-</script>
-
-<template>
-  <input
-    :value="modelValue"
-    @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
-  />
-</template>
-```
-
 ### Vue 3.4+ : defineModel()
 
 ```vue
 <script setup lang="ts">
-// ✅ Nouveau : une seule ligne !
+// Une seule ligne !
 const modelValue = defineModel<string>({ default: '' })
 // C'est un ref bidirectionnel : modifie modelValue.value = modifie le parent
 </script>
@@ -142,148 +119,93 @@ const modelValue = defineModel<string>({ default: '' })
 ### Sans debounce : requête à chaque frappe
 
 ```
-Utilisateur tape "rivoli"
-r      → fetch('r')      ❌ Trop tôt
-ri     → fetch('ri')     ❌ Trop tôt
-riv    → fetch('riv')    ❌ Trop tôt
-rivo   → fetch('rivo')   ❌ Trop tôt
-rivol  → fetch('rivol')  ❌ Trop tôt
-rivoli → fetch('rivoli') ✅ Celui qu'on veut
+Utilisateur tape "paris"
+p      → fetch('p')      ❌ Trop tôt
+pa     → fetch('pa')     ❌ Trop tôt
+par    → fetch('par')    ❌ Trop tôt
+pari   → fetch('pari')   ❌ Trop tôt
+paris  → fetch('paris')  ✅ Celui qu'on veut
 
-= 6 requêtes au lieu de 1
+= 5 requêtes au lieu de 1
 ```
 
 ### Avec debounce : attend que l'utilisateur arrête
 
 ```
-Utilisateur tape "rivoli"
-r      → (attend 300ms)
-ri     → (reset timer, attend 300ms)
-riv    → (reset timer, attend 300ms)
+Utilisateur tape "paris"
+p      → (attend 300ms)
+pa     → (reset timer, attend 300ms)
+par    → (reset timer, attend 300ms)
 ...
-rivoli → (attend 300ms... ok, pas de frappe)
-       → fetch('rivoli') ✅ Une seule requête
-```
-
-### React : useEffect + setTimeout
-
-```tsx
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState(value)
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedValue(value)
-    }, delay)
-
-    return () => clearTimeout(timer)  // Cleanup = reset timer
-  }, [value, delay])
-
-  return debouncedValue
-}
-
-// Utilisation
-const debouncedSearch = useDebounce(search, 300)
+paris  → (attend 300ms... ok, pas de frappe)
+       → fetch('paris') ✅ Une seule requête
 ```
 
 ### Vue : watchDebounced de VueUse
 
 ```typescript
-import { watchDebounced } from '@vueuse/core'
-
+// VueUse est auto-importé via @vueuse/nuxt
 const localValue = ref('')
-const debouncedValue = ref('')
 
-// Quand localValue change, met à jour debouncedValue après 300ms
 watchDebounced(
   localValue,
   (value) => {
-    debouncedValue.value = value
+    // Exécuté 300ms après le dernier changement
+    doSearch(value)
   },
   { debounce: 300 }
 )
 ```
 
-**Avantage Nuxt** : VueUse est auto-importé, pas besoin d'import explicite.
-
 ---
 
 ## Les fichiers à créer/modifier
 
-### 1. Créer `apps/web/app/components/SearchBar.vue`
+### 1. Créer la query `apps/web/app/queries/searchCommunes.ts`
+
+```typescript
+import { gql } from 'graphql-tag'
+
+export interface CommuneSearchResult {
+  id: string
+  nom: string
+  codePostal: string
+  departement: {
+    code: string
+    nom: string
+  }
+}
+
+export interface SearchCommunesData {
+  searchCommunes: CommuneSearchResult[]
+}
+
+export const SEARCH_COMMUNES_QUERY = gql`
+  query SearchCommunes($search: String!, $first: Int) {
+    searchCommunes(search: $search, first: $first) {
+      id
+      nom
+      codePostal
+      departement {
+        code
+        nom
+      }
+    }
+  }
+`
+```
+
+### 2. Créer `apps/web/app/components/SearchBar.vue`
 
 ```vue
 <script setup lang="ts">
 /**
  * Barre de recherche avec debounce intégré.
- *
- * Pattern utilisé : Local + Debounce → Parent
- *
- * ┌─────────────────────────────────────────────┐
- * │  Parent (index.vue)                         │
- * │                                             │
- * │  search ←──────── modelValue (debounced)    │
- * │                          ↑                  │
- * │                     (300ms delay)           │
- * │                          ↑                  │
- * │              ┌───────────────────┐          │
- * │              │ SearchBar.vue     │          │
- * │              │                   │          │
- * │              │  localValue ←─ input         │
- * │              │  (instant)        │          │
- * │              └───────────────────┘          │
- * └─────────────────────────────────────────────┘
- *
- * Pourquoi ce pattern ?
- * - L'input répond instantanément (pas de lag UX)
- * - Le parent reçoit la valeur après debounce (pas de spam API)
  */
-
-// ============================================================
-// DEFINE MODEL
-// ============================================================
-// defineModel() = v-model bidirectionnel (Vue 3.4+)
-// Crée automatiquement :
-// - Une prop "modelValue"
-// - Un emit "update:modelValue"
-// - Un ref réactif synchronisé avec le parent
-//
-// Equivalent React :
-// interface Props {
-//   value: string
-//   onChange: (value: string) => void
-// }
-// ============================================================
 
 const modelValue = defineModel<string>({ default: '' })
 
-// ============================================================
-// REF LOCALE POUR LE DEBOUNCE
-// ============================================================
-// On utilise une valeur locale pour que l'input soit réactif
-// instantanément, même si on debounce la propagation au parent.
-//
-// Si on utilisait directement modelValue avec debounce,
-// l'input aurait un délai de 300ms = UX horrible.
-// ============================================================
-
 const localValue = ref(modelValue.value)
-
-// ============================================================
-// SYNC LOCAL → PARENT (avec debounce)
-// ============================================================
-// watchDebounced vient de VueUse (auto-importé par Nuxt)
-// Quand localValue change, on attend 300ms sans autre changement
-// avant de propager au parent.
-//
-// Equivalent React :
-// useEffect(() => {
-//   const timer = setTimeout(() => {
-//     onChange(localValue)
-//   }, 300)
-//   return () => clearTimeout(timer)
-// }, [localValue])
-// ============================================================
 
 watchDebounced(
   localValue,
@@ -293,16 +215,6 @@ watchDebounced(
   { debounce: 300 }
 )
 
-// ============================================================
-// SYNC PARENT → LOCAL (sans debounce)
-// ============================================================
-// Si le parent modifie la valeur (ex: bouton "clear"),
-// on synchronise immédiatement vers l'input local.
-//
-// Le check `value !== localValue.value` évite les boucles infinies :
-// local change → parent change → local change → ...
-// ============================================================
-
 watch(modelValue, (value) => {
   if (value !== localValue.value) {
     localValue.value = value
@@ -311,27 +223,16 @@ watch(modelValue, (value) => {
 </script>
 
 <template>
-  <!--
-    Container avec positionnement relatif pour l'icône absolue.
-  -->
   <div class="relative">
-    <!--
-      Input avec v-model sur la valeur LOCALE (pas modelValue).
-      Ainsi l'utilisateur voit ses frappes instantanément.
-    -->
     <input
       v-model="localValue"
       type="text"
-      placeholder="Rechercher une voie..."
+      placeholder="Rechercher une commune..."
       class="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg
              focus:ring-2 focus:ring-blue-500 focus:border-transparent
              transition-shadow"
     >
 
-    <!--
-      Icône de recherche positionnée à gauche de l'input.
-      Utilise translate pour centrer verticalement.
-    -->
     <svg
       class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
       fill="none"
@@ -349,91 +250,25 @@ watch(modelValue, (value) => {
 </template>
 ```
 
-### 2. Créer `apps/web/app/components/SearchResults.vue`
+### 3. Créer `apps/web/app/components/SearchResults.vue`
 
 ```vue
 <script setup lang="ts">
-/**
- * Affichage des résultats de recherche.
- *
- * Pattern Vue pour les composants de présentation :
- * - Props pour les données entrantes
- * - Emits pour les événements sortants
- * - Pas de logique métier, juste de l'affichage
- *
- * Equivalent React :
- * interface Props {
- *   voies: Voie[]
- *   loading: boolean
- *   onSelect: (voie: Voie) => void
- * }
- */
-
-// ============================================================
-// INTERFACE DES DONNÉES
-// ============================================================
-
-interface Voie {
-  id: string
-  nom: string
-  commune: {
-    nom: string
-    codePostal: string
-  }
-}
-
-// ============================================================
-// DEFINE PROPS
-// ============================================================
-// defineProps avec TypeScript = typage automatique des props.
-// Pas besoin de runtime validation, c'est compile-time.
-//
-// Equivalent React :
-// function SearchResults({ voies, loading }: {
-//   voies: Voie[]
-//   loading: boolean
-// })
-// ============================================================
+import type { CommuneSearchResult } from '../queries/searchCommunes'
 
 defineProps<{
-  voies: Voie[]
+  communes: CommuneSearchResult[]
   loading: boolean
 }>()
 
-// ============================================================
-// DEFINE EMITS
-// ============================================================
-// defineEmits déclare les événements que ce composant émet.
-// Notation TypeScript : [paramètre: type]
-//
-// Equivalent React :
-// onSelect: (voie: Voie) => void
-//
-// Différence clé :
-// - React : callback en prop
-// - Vue : événement émis vers le parent
-// ============================================================
-
 defineEmits<{
-  select: [voie: Voie]
+  select: [commune: CommuneSearchResult]
 }>()
 </script>
 
 <template>
   <div class="mt-4">
-    <!--
-      État 1 : Chargement
-      v-if évalue la condition et render/destroy le DOM selon le résultat.
-
-      Equivalent React :
-      {loading && <Skeleton />}
-    -->
     <div v-if="loading" class="space-y-2">
-      <!--
-        v-for avec :key pour les listes.
-        `:key` est OBLIGATOIRE en Vue (erreur si absent).
-        Sert au virtual DOM pour identifier les éléments.
-      -->
       <div
         v-for="i in 5"
         :key="i"
@@ -441,318 +276,186 @@ defineEmits<{
       />
     </div>
 
-    <!--
-      État 2 : Résultats trouvés
-      v-else-if chaîne avec le v-if précédent.
-    -->
-    <div v-else-if="voies.length > 0" class="space-y-2">
+    <div v-else-if="communes.length > 0" class="space-y-2">
       <button
-        v-for="voie in voies"
-        :key="voie.id"
+        v-for="commune in communes"
+        :key="commune.id"
         class="w-full p-4 text-left bg-white rounded-lg shadow
                hover:bg-blue-50 transition-colors"
-        @click="$emit('select', voie)"
+        @click="$emit('select', commune)"
       >
-        <!--
-          {{ }} = interpolation de texte (mustache syntax).
-          Equivalent React : {voie.nom}
-        -->
         <div class="font-medium text-gray-900">
-          {{ voie.nom }}
+          {{ commune.nom }}
         </div>
         <div class="text-sm text-gray-500">
-          {{ voie.commune.nom }} ({{ voie.commune.codePostal }})
+          {{ commune.codePostal }} - {{ commune.departement.nom }} ({{ commune.departement.code }})
         </div>
       </button>
     </div>
 
-    <!--
-      État 3 : Aucun résultat
-      v-else capture tous les cas restants.
-    -->
     <div
       v-else
       class="p-8 text-center text-gray-500 bg-gray-50 rounded-lg"
     >
-      Aucune voie trouvée
+      Aucune commune trouvée
     </div>
   </div>
 </template>
 ```
 
-### 3. Modifier `apps/web/app/pages/index.vue`
+### 4. Modifier `apps/web/app/pages/index.vue`
 
 ```vue
 <script setup lang="ts">
-/**
- * Page d'accueil avec recherche de voies.
- *
- * Architecture de la recherche :
- *
- * ┌─────────────────────────────────────────────┐
- * │  index.vue                                  │
- * │                                             │
- * │  search (ref) ←──── SearchBar (debounced)   │
- * │       │                                     │
- * │       ▼                                     │
- * │  useAsyncData({ watch: [search] })          │
- * │       │                                     │
- * │       ▼                                     │
- * │  data (query results)                       │
- * │       │                                     │
- * │       ▼                                     │
- * │  voies (computed) → SearchResults           │
- * └─────────────────────────────────────────────┘
- *
- * Le `watch` sur search déclenche automatiquement
- * un re-fetch quand la valeur change.
- */
+import { DEPARTEMENTS_QUERY, type DepartementsData } from '../queries/departements'
+import { SEARCH_COMMUNES_QUERY, type CommuneSearchResult } from '../queries/searchCommunes'
 
-// ============================================================
-// GRAPHQL QUERY
-// ============================================================
-// gql est auto-importé par @nuxtjs/apollo.
-// Définir la query en haut du fichier pour lisibilité.
-// ============================================================
+const { data, pending, error } = await useAsyncQuery<DepartementsData>(DEPARTEMENTS_QUERY)
 
-const SEARCH_VOIES_QUERY = gql`
-  query SearchVoies($search: String!, $first: Int!) {
-    searchVoies(search: $search, first: $first) {
-      edges {
-        node {
-          id
-          nom
-          commune {
-            nom
-            codePostal
-          }
-        }
-      }
-    }
-  }
-`
+const departements = computed(() => data.value?.departements ?? [])
 
-// ============================================================
-// STATE DE RECHERCHE
-// ============================================================
-// ref('') crée une valeur réactive initialisée à chaîne vide.
-// Cette valeur est synchronisée avec SearchBar via v-model.
-//
-// Equivalent React :
-// const [search, setSearch] = useState('')
-// ============================================================
+const totalCommunes = computed(() =>
+  departements.value.reduce((sum, dept) => sum + dept.communeCount, 0),
+)
 
 const search = ref('')
+const searchResults = ref<CommuneSearchResult[]>([])
+const searchPending = ref(false)
 
-// ============================================================
-// FETCH AVEC WATCH AUTOMATIQUE
-// ============================================================
-// useAsyncData avec l'option `watch` re-exécute la fonction
-// chaque fois qu'une des refs du tableau change.
-//
-// C'est l'équivalent de :
-// useEffect(() => {
-//   if (search.length >= 2) fetchData()
-// }, [search])
-//
-// Mais avec gestion SSR, cache, et états (pending, error).
-// ============================================================
+const { clients } = useApollo()
 
-const { data, pending } = await useAsyncData(
-  'searchVoies',  // Clé de cache unique
-  async () => {
-    // Guard : ne pas fetch si moins de 2 caractères
-    // Évite les requêtes trop génériques
-    if (search.value.length < 2) return null
-
-    // Récupérer le client Apollo
-    const { resolveClient } = useApollo()
-    const client = resolveClient()
-
-    // Exécuter la query GraphQL
-    return client.query({
-      query: SEARCH_VOIES_QUERY,
-      variables: {
-        search: search.value,
-        first: 10
-      }
+watchDebounced(
+  search,
+  async (value: string) => {
+    if (value.length < 2) {
+      searchResults.value = []
+      return
+    }
+    searchPending.value = true
+    const { data } = await clients!.default.query({
+      query: SEARCH_COMMUNES_QUERY,
+      variables: { search: value, first: 10 },
     })
+    searchResults.value = data?.searchCommunes ?? []
+    searchPending.value = false
   },
-  {
-    // Re-fetch automatique quand search change
-    // C'est ce qui rend la recherche "live"
-    watch: [search]
-  }
+  { debounce: 300 }
 )
 
-// ============================================================
-// COMPUTED POUR EXTRAIRE LES VOIES
-// ============================================================
-// computed() crée une valeur dérivée qui se recalcule
-// automatiquement quand ses dépendances changent.
-//
-// Ici : quand data change, voies est recalculé.
-//
-// Equivalent React :
-// const voies = useMemo(() =>
-//   data?.data?.searchVoies?.edges?.map(e => e.node) ?? [],
-//   [data]
-// )
-//
-// Différence : Vue détecte automatiquement les dépendances.
-// ============================================================
-
-const voies = computed(() =>
-  data.value?.data?.searchVoies?.edges?.map((e: any) => e.node) ?? []
-)
-
-// ============================================================
-// NAVIGATION
-// ============================================================
-// navigateTo() est auto-importé par Nuxt.
-// C'est l'équivalent de router.push() mais plus simple.
-//
-// Equivalent React :
-// const router = useRouter()
-// function handleSelect(voie) {
-//   router.push(`/voies/${voie.id}`)
-// }
-// ============================================================
-
-function handleSelect(voie: any) {
-  navigateTo(`/voies/${voie.id}`)
+function handleSelect(commune: CommuneSearchResult) {
+  navigateTo(`/communes/${commune.id}`)
 }
+
+useSeoMeta({
+  title: "Explorateur d'adresses",
+  description: 'Explore les adresses françaises',
+})
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 p-8">
-    <!--
-      Titre de la page.
-      Pas de Head/useSeoMeta ici car c'est l'index,
-      les meta par défaut suffisent.
-    -->
-    <h1 class="text-3xl font-bold text-gray-900">
-      Explorateur d'adresses
-    </h1>
+  <div class="min-h-screen bg-gray-50">
+    <header class="bg-white shadow-sm">
+      <div class="max-w-7xl mx-auto px-4 py-6">
+        <h1 class="text-3xl font-bold text-gray-900">Explorateur d'adresses</h1>
+      </div>
+    </header>
 
-    <div class="mt-8 max-w-xl">
-      <!--
-        Barre de recherche avec v-model bidirectionnel.
-        Le composant SearchBar gère le debounce en interne.
+    <main class="max-w-7xl mx-auto px-4 py-8">
+      <div v-if="pending" class="animate-pulse h-32 bg-gray-200 rounded" />
 
-        v-model="search" est équivalent à :
-        :modelValue="search"
-        @update:modelValue="search = $event"
-
-        Equivalent React :
-        <SearchBar
-          value={search}
-          onChange={setSearch}
-        />
-      -->
-      <SearchBar v-model="search" />
-
-      <!--
-        Indication du minimum de caractères.
-        v-if conditionnel : affiche seulement si conditions remplies.
-
-        Equivalent React :
-        {search.length > 0 && search.length < 2 && (
-          <p>Tape au moins 2 caractères...</p>
-        )}
-      -->
-      <p
-        v-if="search.length > 0 && search.length < 2"
-        class="mt-2 text-sm text-gray-500"
+      <div
+        v-else-if="error"
+        class="bg-red-50 border border-red-200 rounded-lg p-6"
       >
-        Tape au moins 2 caractères...
-      </p>
+        <p class="text-red-700">{{ error }}</p>
+      </div>
 
-      <!--
-        Résultats de recherche.
-        Seulement affiché si on a au moins 2 caractères.
+      <div v-else>
+        <div class="mb-8 grid grid-cols-2 gap-4 max-w-md">
+          <div class="bg-white rounded-lg shadow p-4">
+            <div class="text-3xl font-bold text-blue-600">
+              {{ departements.length }}
+            </div>
+            <div class="text-gray-600">Départements</div>
+          </div>
+          <div class="bg-white rounded-lg shadow p-4">
+            <div class="text-3xl font-bold text-green-600">
+              {{ totalCommunes.toLocaleString() }}
+            </div>
+            <div class="text-gray-600">Communes</div>
+          </div>
+        </div>
 
-        @select écoute l'événement "select" émis par SearchResults.
-        C'est l'équivalent de onSelect en React.
-      -->
-      <SearchResults
-        v-if="search.length >= 2"
-        :voies="voies"
-        :loading="pending"
-        @select="handleSelect"
-      />
-    </div>
+        <div class="max-w-xl mb-8">
+          <SearchBar v-model="search" />
+
+          <p
+            v-if="search.length > 0 && search.length < 2"
+            class="mt-2 text-sm text-gray-500"
+          >
+            Tape au moins 2 caractères...
+          </p>
+
+          <SearchResults
+            v-if="search.length >= 2"
+            :communes="searchResults"
+            :loading="searchPending"
+            @select="handleSelect"
+          />
+        </div>
+
+        <div class="space-y-2">
+          <div
+            v-for="dept in departements"
+            :key="dept.code"
+            class="bg-white rounded-lg shadow p-4"
+          >
+            <span class="font-bold">{{ dept.code }}</span>
+            <span class="ml-2">{{ dept.nom }}</span>
+            <span class="text-gray-500 ml-2"
+              >({{ dept.communeCount }} communes)</span
+            >
+          </div>
+        </div>
+      </div>
+    </main>
   </div>
 </template>
 ```
 
 ---
 
-## Comprendre v-if vs v-show
+## Comprendre useApollo pour les queries manuelles
 
-### v-if : conditional rendering
+```typescript
+const { clients } = useApollo()
 
-```vue
-<template>
-  <!-- v-if détruit/recrée le DOM -->
-  <div v-if="show">Je suis créé/détruit</div>
-</template>
+// Exécuter une query manuellement
+const { data } = await clients!.default.query({
+  query: SEARCH_COMMUNES_QUERY,
+  variables: { search: 'paris', first: 10 },
+})
 ```
 
-**Équivalent React :**
-```tsx
-{show && <div>Je suis créé/détruit</div>}
-```
+**Quand utiliser `useApollo` vs `useAsyncQuery` ?**
 
-### v-show : toggle visibility
-
-```vue
-<template>
-  <!-- v-show ajoute/retire display: none -->
-  <div v-show="show">Je suis caché/visible</div>
-</template>
-```
-
-**Équivalent React :**
-```tsx
-<div style={{ display: show ? 'block' : 'none' }}>
-  Je suis caché/visible
-</div>
-```
-
-### Quand utiliser lequel ?
-
-| Cas d'usage | Recommandation |
-|-------------|----------------|
-| Toggle fréquent | `v-show` (pas de re-render) |
-| Condition rarement changée | `v-if` (pas de DOM caché) |
-| Plusieurs conditions | `v-if` / `v-else-if` / `v-else` |
-| Grosse section | `v-if` (moins de DOM initial) |
+| Méthode | Usage |
+|---------|-------|
+| `useAsyncQuery` | Données initiales, SSR |
+| `useApollo().clients.default.query()` | Queries déclenchées par l'utilisateur |
 
 ---
 
-## Commandes à exécuter
-
-```bash
-# Terminal 1 : Lancer l'API
-npm run dev:api
-
-# Terminal 2 : Lancer le front
-npm run dev:web
-```
-
----
-
-## Checkpoint ✓
+## Checkpoint
 
 ### 1. Tester le debounce
 
 1. Ouvre `http://localhost:3000`
 2. Ouvre l'onglet Network des DevTools
-3. Tape "rivoli" rapidement dans la barre de recherche
+3. Tape "paris" rapidement dans la barre de recherche
 4. Compte les requêtes GraphQL
 
-**Tu dois voir** : Une seule requête 300ms après la dernière frappe, pas 6 requêtes.
+**Tu dois voir** : Une seule requête 300ms après la dernière frappe, pas 5 requêtes.
 
 ### 2. Vérifier l'input instantané
 
@@ -768,7 +471,7 @@ npm run dev:web
 | 1 caractère | Message "au moins 2 caractères" |
 | 2+ caractères | Skeleton pendant le loading |
 | Résultats reçus | Liste cliquable |
-| Aucun résultat | Message "Aucune voie trouvée" |
+| Aucun résultat | Message "Aucune commune trouvée" |
 
 ---
 
@@ -778,74 +481,9 @@ npm run dev:web
 |----------|-------|----------|
 | Requête à chaque frappe | Pas de debounce | Utiliser `watchDebounced` |
 | `defineModel is not defined` | Version Vue < 3.4 | Mettre à jour ou utiliser props/emit |
-| Résultats pas à jour | Cache Apollo | Vérifier `watch: [search]` |
 | Input lag | Debounce sur l'input | Debounce sur la propagation, pas l'input |
 | Boucle infinie | Sync bidirectionnelle sans guard | Vérifier `value !== localValue.value` |
-| `watchDebounced is not defined` | VueUse pas importé | Ajouter `@vueuse/core` ou relancer Nuxt |
-
----
-
-## Pattern avancé : Debounce vs Throttle
-
-```typescript
-// DEBOUNCE : attend que l'utilisateur arrête
-// Bon pour : recherche, autocomplétion, resize window
-watchDebounced(search, fetch, { debounce: 300 })
-// Si tape "abc" rapidement, fetch appelé UNE fois avec "abc"
-
-// THROTTLE : exécute au max une fois par intervalle
-// Bon pour : scroll, drag, animations
-watchThrottled(scroll, handleScroll, { throttle: 100 })
-// Si scroll pendant 1s, handleScroll appelé ~10 fois (toutes les 100ms)
-```
-
-### Visualisation
-
-```
-Debounce 300ms (recherche) :
-|--a--|--b--|--c--|-----------|FETCH("abc")
-      ↑     ↑     ↑           ↑
-    type  type  type      300ms after last
-
-Throttle 100ms (scroll) :
-|--a--|--b--|--c--|--d--|--e--|--f--|
-      ↑           ↑           ↑
-   CALL        CALL        CALL
-   (100ms)    (100ms)     (100ms)
-```
-
----
-
-## Pattern : Recherche optimisée avec cache
-
-Pour éviter de re-fetcher les mêmes recherches :
-
-```typescript
-// Option 1 : Apollo cache (automatique)
-// Si la même query avec les mêmes variables est exécutée,
-// Apollo retourne le cache sans fetch réseau.
-
-// Option 2 : Cache manuel
-const searchCache = new Map<string, Voie[]>()
-
-const { data } = await useAsyncData(
-  'searchVoies',
-  async () => {
-    const key = search.value
-
-    // Retourner du cache si disponible
-    if (searchCache.has(key)) {
-      return { data: { searchVoies: { edges: searchCache.get(key) } } }
-    }
-
-    // Sinon fetch et stocker
-    const result = await client.query({ ... })
-    searchCache.set(key, result.data.searchVoies.edges)
-    return result
-  },
-  { watch: [search] }
-)
-```
+| `watchDebounced is not defined` | VueUse pas configuré | Ajouter `@vueuse/nuxt` aux modules |
 
 ---
 

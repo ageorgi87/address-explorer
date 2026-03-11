@@ -1,7 +1,0 @@
-query Departements {
-  departements {
-    code
-    nom
-    communeCount
-  }
-}

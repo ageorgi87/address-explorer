@@ -1,152 +1,153 @@
-# Step 11 : Configurer Apollo dans Nuxt
+# Step 11 : Configurer Apollo Client dans Nuxt
 
-> **Commit** : `step-11-apollo-setup`
-> **Durée** : ~20 min
+> **Commit** : `step-11-apollo-client`
 > **Prérequis** : Step 10 complété, API qui tourne
 
 ---
 
 ## Objectif
 
-Connecter le front Nuxt à l'API GraphQL avec Apollo Client.
+Connecter le front Nuxt à l'API GraphQL avec `@nuxtjs/apollo`.
 
 À la fin de ce step :
-- Apollo Client est configuré dans Nuxt
+- Le client Apollo est configuré dans Nuxt
 - Le front peut communiquer avec l'API
-- Tu comprends la différence avec la config Apollo dans Next.js
+- Tu comprends la structure des queries
 
 ---
 
-## Pourquoi Apollo Client ?
+## Pourquoi Apollo ?
 
 ### Les alternatives pour consommer GraphQL
 
 | Client | Avantages | Inconvénients |
 |--------|-----------|---------------|
 | **Fetch natif** | Zéro dépendance | Pas de cache, gestion manuelle |
-| **urql** | Léger, extensible | Moins de plugins |
-| **graphql-request** | Ultra simple | Pas de cache |
 | **Apollo Client** | Cache normalisé, devtools, écosystème | Plus lourd |
-| **TanStack Query + graphql-request** | Excellent cache, familier React Query | Config manuelle |
+| **graphql-request** | Ultra simple | Pas de cache |
+| **urql** | Léger, extensible | Moins de plugins |
 
 ### Pourquoi choisir Apollo
 
-Pour notre formation :
-1. **Cache normalisé** : Les données sont stockées par ID, pas par query
-2. **Devtools** : Extension Chrome pour débugger
-3. **Module Nuxt officiel** : `@nuxtjs/apollo`
-4. **SSR natif** : Gère le rendu serveur automatiquement
-
----
-
-## Apollo dans Next.js vs Nuxt
-
-### Next.js (Pages Router)
-
-```tsx
-// pages/_app.tsx
-import { ApolloClient, InMemoryCache, ApolloProvider } from '@apollo/client'
-
-const client = new ApolloClient({
-  uri: 'http://localhost:4000/graphql',
-  cache: new InMemoryCache(),
-})
-
-export default function App({ Component, pageProps }) {
-  return (
-    <ApolloProvider client={client}>
-      <Component {...pageProps} />
-    </ApolloProvider>
-  )
-}
-```
-
-**Points d'attention Next.js :**
-- Provider wrapper manuel
-- Gestion SSR compliquée (getServerSideProps + cache transfer)
-- Import explicite de chaque hook
-
-### Nuxt
-
-```typescript
-// nuxt.config.ts
-export default defineNuxtConfig({
-  modules: ['@nuxtjs/apollo'],
-  apollo: {
-    clients: {
-      default: {
-        httpEndpoint: 'http://localhost:4000/graphql',
-      },
-    },
-  },
-})
-```
-
-**Avantages Nuxt :**
-- Configuration déclarative
-- SSR géré automatiquement
-- Auto-import des composables (`useQuery`, `useMutation`)
-- Pas de wrapper dans les composants
-
-### Tableau comparatif
-
-| Aspect | Next.js | Nuxt |
-|--------|---------|------|
-| Configuration | `_app.tsx` + Provider | `nuxt.config.ts` |
-| Import hooks | Manuel | Auto-import |
-| SSR | `getServerSideProps` + cache hydration | Automatique |
-| Accès au client | `useApolloClient()` | `useApollo()` |
-| Multiple clients | Config custom | `clients: { auth: {...} }` |
+Pour notre projet :
+1. **Écosystème mature** : Documentation, devtools, communauté
+2. **Cache intelligent** : Évite les requêtes redondantes
+3. **SSR natif** : Intégration Nuxt via `@nuxtjs/apollo`
+4. **Standard de l'industrie** : Compétence transférable
 
 ---
 
 ## Les fichiers à modifier
 
-### 1. Mettre à jour `apps/web/package.json`
+### 1. Installer les dépendances
 
-Ajouter le module Apollo :
-
-```json
-{
-  "dependencies": {
-    "@nuxtjs/apollo": "^5.0.0"
-  }
-}
+```bash
+cd apps/web
+npm install @nuxtjs/apollo@next @vueuse/nuxt
 ```
 
 ### 2. Mettre à jour `apps/web/nuxt.config.ts`
 
 ```typescript
 export default defineNuxtConfig({
+  compatibilityDate: '2024-11-01',
+
   modules: [
     '@nuxt/ui',
     '@nuxtjs/apollo',
+    '@vueuse/nuxt',
   ],
-
-  future: {
-    compatibilityVersion: 4,
-  },
-
-  compatibilityDate: '2024-11-01',
 
   apollo: {
     clients: {
       default: {
         httpEndpoint: process.env.NUXT_PUBLIC_GRAPHQL_URL || 'http://localhost:4000/graphql',
-        httpLinkOptions: {
-          credentials: 'same-origin',
-        },
-        connectToDevTools: process.env.NODE_ENV === 'development',
       },
     },
-    autoImports: true,
   },
 
-  runtimeConfig: {
-    public: {
-      graphqlUrl: process.env.NUXT_PUBLIC_GRAPHQL_URL || 'http://localhost:4000/graphql',
-    },
+  ssr: true,
+  devtools: { enabled: true },
+
+  typescript: {
+    strict: true,
   },
+})
+```
+
+---
+
+## Structure des queries
+
+On organise les queries dans un dossier dédié, un fichier par query :
+
+```
+apps/web/app/
+├── queries/
+│   ├── departements.ts
+│   └── searchCommunes.ts
+├── pages/
+│   └── index.vue
+└── components/
+```
+
+### Exemple de fichier query
+
+```typescript
+// queries/departements.ts
+import { gql } from 'graphql-tag'
+
+export interface Departement {
+  code: string
+  nom: string
+  communeCount: number
+}
+
+export interface DepartementsData {
+  departements: Departement[]
+}
+
+export const DEPARTEMENTS_QUERY = gql`
+  query Departements {
+    departements {
+      code
+      nom
+      communeCount
+    }
+  }
+`
+```
+
+**Points clés :**
+- Les types sont définis avec la query
+- On exporte l'interface `Data` pour typer `useAsyncQuery`
+- Convention de nommage : `QUERY_NAME` en SCREAMING_CASE
+
+---
+
+## Les composables Apollo
+
+| Composable | Usage |
+|------------|-------|
+| `useAsyncQuery()` | Query avec SSR (recommandé pour les données initiales) |
+| `useQuery()` | Query réactive sans SSR |
+| `useLazyAsyncQuery()` | Query lazy, déclenchée manuellement |
+| `useMutation()` | Mutations |
+| `useApollo()` | Accès direct au client Apollo |
+
+### Quelle méthode utiliser ?
+
+```typescript
+import { DEPARTEMENTS_QUERY, type DepartementsData } from '../queries/departements'
+
+// RECOMMANDÉ pour les données initiales (SSR)
+const { data, pending, error } = await useAsyncQuery<DepartementsData>(DEPARTEMENTS_QUERY)
+
+// Pour les queries déclenchées par l'utilisateur
+const { clients } = useApollo()
+const { data } = await clients.default.query({
+  query: SEARCH_QUERY,
+  variables: { search: 'paris' }
 })
 ```
 
@@ -173,67 +174,14 @@ npm run dev:web
 
 La console de `npm run dev:web` ne doit pas montrer d'erreur liée à Apollo.
 
-### 2. Vérifier les auto-imports
-
-Après le build initial :
-
-```bash
-cat apps/web/.nuxt/imports.d.ts | grep -i apollo
-```
-
-Tu dois voir :
-```typescript
-const useApollo: typeof import('@nuxtjs/apollo')['useApollo']
-const useAsyncQuery: typeof import('@nuxtjs/apollo')['useAsyncQuery']
-```
-
-### 3. Accéder à l'app
+### 2. Accéder à l'app
 
 Ouvre `http://localhost:3000`. La page doit s'afficher sans erreur.
 
 ---
 
-## Les composables disponibles
-
-Le module `@nuxtjs/apollo` auto-importe ces composables :
-
-| Composable | Usage | Équivalent React |
-|------------|-------|------------------|
-| `useApollo()` | Accès direct au client | `useApolloClient()` |
-| `useAsyncQuery()` | Query avec SSR (recommandé) | N/A (spécifique Nuxt) |
-| `useLazyAsyncQuery()` | Query lazy avec SSR | N/A |
-| `useQuery()` | Query classique Apollo | `useQuery()` |
-| `useMutation()` | Mutations | `useMutation()` |
-
-### Quelle méthode utiliser ?
-
-```typescript
-// RECOMMANDÉ pour la plupart des cas
-const { data, pending, error } = await useAsyncQuery(MY_QUERY)
-
-// Pour les queries déclenchées par l'utilisateur
-const { data, pending, execute } = await useLazyAsyncQuery(SEARCH_QUERY)
-
-// Pour les cas simples, attention au SSR
-const { result, loading } = useQuery(MY_QUERY)
-```
-
----
-
-## Installer les Apollo DevTools
-
-Pour débugger efficacement :
-
-1. Installe l'extension Chrome : [Apollo Client Devtools](https://chrome.google.com/webstore/detail/apollo-client-devtools/jdkknkkbebbapilgoeccciglkfbmbnfm)
-
-2. Vérifie que `connectToDevTools: true` est dans la config
-
-3. Ouvre les DevTools Chrome > onglet "Apollo"
-
----
-
 ## Prochaine étape
 
-Apollo est configuré. Faisons notre première vraie query !
+Le client Apollo est configuré. Faisons notre première vraie query !
 
-→ [12-first-query.md](./12-first-query.md) : Afficher les départements avec useAsyncQuery
+→ [12-apollo-setup.md](./12-apollo-setup.md) : Afficher les départements avec useAsyncQuery
