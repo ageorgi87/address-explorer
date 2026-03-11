@@ -1,8 +1,8 @@
-# Step 15 : Page dynamique /communes/[id]
+# Step 14 : Page dynamique /communes/[id]
 
-> **Commit** : `step-15-dynamic-route`
+> **Commit** : `step-14-dynamic-route`
 > **Durée** : ~35 min
-> **Prérequis** : Step 14 complété
+> **Prérequis** : Step 13 complété
 
 ---
 
@@ -858,4 +858,4 @@ const prefetch = () => {
 
 ## Prochaine étape
 
-→ [16-map.md](./16-map.md) : Carte MapLibre avec les adresses
+→ [15-map.md](./15-map.md) : Carte MapLibre avec les adresses

@@ -1,4 +1,4 @@
-# Step 10 : Premiers types GraphQL
+# Step 10 : Types GraphQL
 
 > **Commit** : `step-10-graphql-types`
 > **Durée** : ~30 min
@@ -8,86 +8,33 @@
 
 ## Objectif
 
-Exposer les types `Departement` et `Commune` en GraphQL avec leurs relations.
+Créer les types GraphQL pour Departement, Commune et Voie avec leurs resolvers.
 
 À la fin de ce step :
-- Les types GraphQL correspondent aux modèles Prisma
-- Les relations sont navigables dans les deux sens
-- Tu comprends le pattern Pothos/Prisma
+- Les types sont définis en SDL dans des template strings TypeScript
+- Les resolvers implémentent les champs calculés et les relations
+- L'API expose les données BAN
 
 ---
 
-## Comment Pothos expose Prisma
-
-### Le flux de données
-
-```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│  schema.prisma  │────▶│  prismaObject()  │────▶│  Type GraphQL   │
-│                 │     │                  │     │                 │
-│  model Dept {   │     │  builder.prisma  │     │  type Dept {    │
-│    code String  │────▶│    Object(...)   │────▶│    code: ID!    │
-│    communes []  │     │                  │     │    communes:... │
-│  }              │     │                  │     │  }              │
-└─────────────────┘     └──────────────────┘     └─────────────────┘
-```
-
-### Ce que fait `prismaObject()`
-
-```typescript
-builder.prismaObject('Departement', {
-  fields: (t) => ({
-    code: t.exposeID('code'),        // Expose le champ Prisma 'code' comme ID
-    nom: t.exposeString('nom'),      // Expose le champ Prisma 'nom' comme String
-    communes: t.relation('communes'), // Expose la relation Prisma 'communes'
-  }),
-})
-```
-
-**Résultat GraphQL :**
-```graphql
-type Departement {
-  code: ID!
-  nom: String!
-  communes: [Commune!]!
-}
-```
-
-### Pourquoi pas mapper directement tous les champs ?
-
-On pourrait exposer automatiquement tous les champs Prisma. Mais **on ne le fait pas** car :
-
-| Exposition automatique | Exposition explicite (notre choix) |
-|------------------------|-----------------------------------|
-| Rapide à écrire | Plus de code |
-| Expose tout par défaut | Contrôle total |
-| Risque de fuites (passwords, etc.) | Sécurisé par défaut |
-| Difficile à maintenir | Intention claire |
-| Pas de champs calculés | Facile d'ajouter des computed |
-
-**Principe** : Exposer explicitement chaque champ, même si c'est répétitif. C'est une forme de documentation.
-
----
-
-## Structure de fichiers recommandée
+## Structure des fichiers
 
 ```
 apps/api/src/
-├── builder.ts          # Configuration Pothos (déjà créé)
-├── db.ts               # Client Prisma (déjà créé)
-├── index.ts            # Point d'entrée serveur
-└── schema/             # NOUVEAU : Types GraphQL
-    ├── index.ts        # Agrège tout + queries
-    ├── departement.ts  # Type Departement
-    ├── commune.ts      # Type Commune
-    ├── voie.ts         # (prochain step)
-    └── numero.ts       # (prochain step)
+├── schema/
+│   ├── departement.ts   # Type Departement + queries
+│   ├── commune.ts       # Type Commune + queries
+│   └── voie.ts          # Type Voie
+├── resolvers/
+│   ├── departement.ts   # Resolvers Departement
+│   ├── commune.ts       # Resolvers Commune
+│   └── voie.ts          # Resolvers Voie
+├── lib/
+│   ├── graphiql.ts      # Config GraphiQL
+│   ├── prisma.ts        # Client Prisma
+│   └── isDev.ts         # Constante isDev
+└── index.ts             # Point d'entrée
 ```
-
-**Pourquoi cette structure ?**
-- Un fichier par type = facile à naviguer
-- `schema/index.ts` centralise l'export du schema
-- Évite les gros fichiers monolithiques
 
 ---
 
@@ -96,347 +43,226 @@ apps/api/src/
 ### 1. `apps/api/src/schema/departement.ts`
 
 ```typescript
-/**
- * Type GraphQL : Departement
- *
- * Représente un département français (101 au total).
- * Expose les champs du model Prisma + relations.
- */
+export const departementTypeDefs = /* GraphQL */ `
+  type Query {
+    "Liste de tous les départements"
+    departements: [Departement!]!
 
-import { builder } from '../builder.js'
+    "Un département par son code"
+    departement(code: String!): Departement
+  }
 
-// ============================================================
-// TYPE DEPARTEMENT
-// ============================================================
-// builder.prismaObject() crée un type GraphQL à partir d'un model Prisma.
-// Le premier argument doit correspondre EXACTEMENT au nom du model.
-// ============================================================
+  "Département français"
+  type Departement {
+    "Code du département (ex: 75)"
+    code: String!
 
-builder.prismaObject('Departement', {
-  // Description visible dans GraphiQL
-  description: 'Un département français',
+    "Nom officiel"
+    nom: String!
 
-  fields: (t) => ({
-    // ============================================================
-    // CHAMPS SCALAIRES
-    // ============================================================
-    // t.exposeXxx() mappe directement un champ Prisma.
-    // TypeScript vérifie que le champ existe et correspond au type.
-    // ============================================================
+    "Nom formaté (ex: 75 - Paris)"
+    displayName: String!
 
-    // Le code est l'identifiant naturel (ex: "75", "13", "2A")
-    // On l'expose comme ID GraphQL (bien qu'il soit String en Prisma)
-    code: t.exposeID('code', {
-      description: 'Code du département (ex: 75 pour Paris)',
-    }),
+    "Nombre de communes"
+    communeCount: Int!
 
-    // Le nom complet du département
-    nom: t.exposeString('nom', {
-      description: 'Nom du département (ex: Paris)',
-    }),
-
-    // ============================================================
-    // RELATIONS
-    // ============================================================
-    // t.relation() expose une relation Prisma.
-    // Pothos sait automatiquement :
-    // - Le type de retour ([Commune] car hasMany)
-    // - Comment résoudre la relation (via Prisma)
-    // ============================================================
-
-    communes: t.relation('communes', {
-      description: 'Liste des communes du département',
-      // On pourrait ajouter des arguments ou trier ici :
-      // args: { limit: t.arg.int({ defaultValue: 100 }) },
-      // query: (args) => ({ take: args.limit, orderBy: { nom: 'asc' } }),
-    }),
-
-    // ============================================================
-    // CHAMPS CALCULÉS (exemples)
-    // ============================================================
-    // Champs qui n'existent pas en base mais sont calculés à la volée.
-    // Utiles pour agréger, formater, ou enrichir les données.
-    // ============================================================
-
-    // Nombre de communes (sans charger toutes les communes)
-    communeCount: t.int({
-      description: 'Nombre de communes dans ce département',
-      resolve: async (departement, _args, ctx) => {
-        // count() est plus efficace que findMany().length
-        return ctx.prisma.commune.count({
-          where: { departementCode: departement.code },
-        })
-      },
-    }),
-
-    // Nom formaté pour l'affichage
-    displayName: t.string({
-      description: 'Nom formaté (ex: "75 - Paris")',
-      resolve: (departement) => `${departement.code} - ${departement.nom}`,
-    }),
-  }),
-})
+    "Liste des communes"
+    communes: [Commune!]!
+  }
+`
 ```
 
 ### 2. `apps/api/src/schema/commune.ts`
 
 ```typescript
-/**
- * Type GraphQL : Commune
- *
- * Représente une commune française (~35 000 au total).
- * Inclut la relation vers le département parent.
- */
+export const communeTypeDefs = /* GraphQL */ `
+  extend type Query {
+    "Une commune par son code INSEE"
+    commune(id: String!): Commune
 
-import { builder } from '../builder.js'
+    "Communes d'un département"
+    communesByDepartement(departementCode: String!): [Commune!]!
+  }
 
-builder.prismaObject('Commune', {
-  description: 'Une commune française',
+  "Commune française"
+  type Commune {
+    "Code INSEE (identifiant unique)"
+    id: String!
 
-  fields: (t) => ({
-    // ============================================================
-    // CHAMPS SCALAIRES
-    // ============================================================
+    "Nom de la commune"
+    nom: String!
 
-    // Code INSEE (identifiant unique national)
-    id: t.exposeID('id', {
-      description: 'Code INSEE de la commune (ex: 75101)',
-    }),
+    "Code postal principal"
+    codePostal: String!
 
-    // Nom de la commune
-    nom: t.exposeString('nom', {
-      description: 'Nom de la commune (ex: Paris 1er Arrondissement)',
-    }),
+    "Nom formaté avec code postal"
+    displayName: String!
 
-    // Code postal (pour l'affichage, pas pour l'identification)
-    codePostal: t.exposeString('codePostal', {
-      description: 'Code postal (ex: 75001)',
-    }),
+    "Département parent"
+    departement: Departement!
 
-    // ============================================================
-    // RELATION VERS LE PARENT
-    // ============================================================
-    // Relation inverse : chaque commune appartient à un département.
-    // C'est une relation "belongsTo" en termes ORM classiques.
-    // ============================================================
+    "Code du département"
+    departementCode: String!
 
-    departement: t.relation('departement', {
-      description: 'Département de cette commune',
-    }),
+    "Nombre de voies"
+    voieCount: Int!
 
-    // Code du département (sans charger la relation)
-    // Utile pour éviter une jointure quand on veut juste le code
-    departementCode: t.exposeString('departementCode', {
-      description: 'Code du département (ex: 75)',
-    }),
-
-    // ============================================================
-    // RELATION VERS LES ENFANTS
-    // ============================================================
-    // On expose aussi la relation vers les voies.
-    // Attention : une commune peut avoir des milliers de voies !
-    // On limitera par défaut.
-    // ============================================================
-
-    voies: t.relation('voies', {
-      description: 'Voies de cette commune',
-      // Limite par défaut pour éviter de charger 6000 voies
-      query: () => ({
-        take: 100,
-        orderBy: { nom: 'asc' as const },
-      }),
-    }),
-
-    // ============================================================
-    // CHAMPS CALCULÉS
-    // ============================================================
-
-    voieCount: t.int({
-      description: 'Nombre de voies dans cette commune',
-      resolve: async (commune, _args, ctx) => {
-        return ctx.prisma.voie.count({
-          where: { communeId: commune.id },
-        })
-      },
-    }),
-
-    // Adresse complète formatée
-    displayName: t.string({
-      description: 'Nom formaté avec code postal (ex: "Paris 1er - 75001")',
-      resolve: (commune) => `${commune.nom} - ${commune.codePostal}`,
-    }),
-  }),
-})
+    "Liste des voies (max 100)"
+    voies: [Voie!]!
+  }
+`
 ```
 
-### 3. `apps/api/src/schema/index.ts`
+### 3. `apps/api/src/schema/voie.ts`
 
 ```typescript
-/**
- * Point d'entrée du schéma GraphQL
- *
- * Ce fichier :
- * 1. Importe tous les types (pour qu'ils soient enregistrés)
- * 2. Définit les queries racine
- * 3. Exporte le schéma final
- */
+export const voieTypeDefs = /* GraphQL */ `
+  "Voie (rue, avenue, etc.)"
+  type Voie {
+    "Identifiant unique"
+    id: String!
 
-import { builder } from '../builder.js'
+    "Nom de la voie"
+    nom: String!
 
-// ============================================================
-// IMPORT DES TYPES
-// ============================================================
-// L'ordre n'a pas d'importance - Pothos résout les dépendances.
-// L'import a pour seul effet d'exécuter le code (enregistrer les types).
-// ============================================================
+    "Commune parente"
+    commune: Commune!
+  }
+`
+```
 
-import './departement.js'
-import './commune.js'
+### 4. `apps/api/src/resolvers/departement.ts`
 
-// ============================================================
-// QUERIES
-// ============================================================
-// Chaque query est un point d'entrée de l'API.
-// Équivalent des endpoints REST.
-// ============================================================
+```typescript
+import type { Resolvers } from '../generated/graphql.js'
 
-// --- Tous les départements ---
-builder.queryField('departements', (t) =>
-  t.prismaField({
-    type: ['Departement'],  // Retourne un tableau
-    description: 'Liste de tous les départements',
-
-    resolve: (query, _root, _args, ctx) =>
-      ctx.prisma.departement.findMany({
-        // IMPORTANT : ...query propage les optimisations Pothos
-        // Il contient les select/include nécessaires pour les relations demandées
-        ...query,
+export const departementResolvers: Resolvers = {
+  Query: {
+    departements: (_parent, _args, ctx) => {
+      return ctx.prisma.departement.findMany({
         orderBy: { code: 'asc' },
-      }),
-  })
-)
-
-// --- Un département par code ---
-builder.queryField('departement', (t) =>
-  t.prismaField({
-    type: 'Departement',
-    nullable: true,  // Peut ne pas exister
-    description: 'Un département par son code',
-
-    args: {
-      code: t.arg.string({
-        required: true,
-        description: 'Code du département (ex: 75)',
-      }),
+      })
     },
 
-    resolve: (query, _root, args, ctx) =>
-      ctx.prisma.departement.findUnique({
-        ...query,
+    departement: (_parent, args, ctx) => {
+      return ctx.prisma.departement.findUnique({
         where: { code: args.code },
-      }),
-  })
-)
+      })
+    },
+  },
 
-// --- Une commune par ID (code INSEE) ---
-builder.queryField('commune', (t) =>
-  t.prismaField({
-    type: 'Commune',
-    nullable: true,
-    description: 'Une commune par son code INSEE',
+  Departement: {
+    // Champ calculé : nom formaté
+    displayName: (parent) => `${parent.code} - ${parent.nom}`,
 
-    args: {
-      id: t.arg.string({
-        required: true,
-        description: 'Code INSEE de la commune (ex: 75101)',
-      }),
+    // Champ calculé : nombre de communes
+    communeCount: (parent, _args, ctx) => {
+      return ctx.prisma.commune.count({
+        where: { departementCode: parent.code },
+      })
     },
 
-    resolve: (query, _root, args, ctx) =>
-      ctx.prisma.commune.findUnique({
-        ...query,
+    // Relation : liste des communes
+    communes: (parent, _args, ctx) => {
+      return ctx.prisma.commune.findMany({
+        where: { departementCode: parent.code },
+        orderBy: { nom: 'asc' },
+      })
+    },
+  },
+}
+```
+
+### 5. `apps/api/src/resolvers/commune.ts`
+
+```typescript
+import type { Resolvers } from '../generated/graphql.js'
+
+export const communeResolvers: Resolvers = {
+  Query: {
+    commune: (_parent, args, ctx) => {
+      return ctx.prisma.commune.findUnique({
         where: { id: args.id },
-      }),
-  })
-)
-
-// --- Communes d'un département ---
-builder.queryField('communesByDepartement', (t) =>
-  t.prismaField({
-    type: ['Commune'],
-    description: 'Toutes les communes d\'un département',
-
-    args: {
-      departementCode: t.arg.string({
-        required: true,
-        description: 'Code du département',
-      }),
+      })
     },
 
-    resolve: (query, _root, args, ctx) =>
-      ctx.prisma.commune.findMany({
-        ...query,
+    communesByDepartement: (_parent, args, ctx) => {
+      return ctx.prisma.commune.findMany({
         where: { departementCode: args.departementCode },
         orderBy: { nom: 'asc' },
-      }),
-  })
-)
+      })
+    },
+  },
 
-// ============================================================
-// EXPORT DU SCHEMA
-// ============================================================
-// builder.toSchema() compile tous les types en un schéma GraphQL.
-// À ce moment, toutes les validations TypeScript sont vérifiées.
-// ============================================================
+  Commune: {
+    // Champ calculé : nom formaté
+    displayName: (parent) => `${parent.nom} - ${parent.codePostal}`,
 
-export const schema = builder.toSchema()
+    // Relation : département parent
+    departement: async (parent, _args, ctx) => {
+      const departement = await ctx.prisma.departement.findUnique({
+        where: { code: parent.departementCode },
+      })
+      if (!departement) throw new Error(`Departement ${parent.departementCode} introuvable`)
+      return departement
+    },
+
+    // Champ calculé : nombre de voies
+    voieCount: (parent, _args, ctx) => {
+      return ctx.prisma.voie.count({
+        where: { communeId: parent.id },
+      })
+    },
+
+    // Relation : liste des voies (limitée)
+    voies: (parent, _args, ctx) => {
+      return ctx.prisma.voie.findMany({
+        where: { communeId: parent.id },
+        take: 100,
+        orderBy: { nom: 'asc' },
+      })
+    },
+  },
+}
 ```
 
-### 4. Simplifier `apps/api/src/index.ts`
+### 6. `apps/api/src/resolvers/voie.ts`
 
 ```typescript
-/**
- * Point d'entrée du serveur
- *
- * Maintenant simplifié : le schéma est défini dans schema/
- */
+import type { Resolvers } from '../generated/graphql.js'
 
-import { createYoga } from 'graphql-yoga'
-import { createServer } from 'node:http'
+export const voieResolvers: Resolvers = {
+  Voie: {
+    commune: async (parent, _args, ctx) => {
+      const commune = await ctx.prisma.commune.findUnique({
+        where: { id: parent.communeId },
+      })
+      if (!commune) throw new Error(`Commune ${parent.communeId} introuvable`)
+      return commune
+    },
+  },
+}
+```
 
-// Importe le schéma compilé
-import { schema } from './schema/index.js'
-import { prisma } from './db.js'
+### 7. `apps/api/src/lib/graphiql.ts`
 
-const yoga = createYoga({
-  schema,
+```typescript
+export const GRAPHIQL_CONFIG = {
+  title: "Adresse Explorer API",
+  defaultQuery: `# Explore l'API !
 
-  context: () => ({ prisma }),
-
-  graphiql: {
-    title: 'Adresse Explorer API',
-    defaultQuery: `# Explore l'API !
-
-# Tous les départements avec leurs communes
-query DepartementsAvecCommunes {
+query Departements {
   departements {
     code
     nom
+    displayName
     communeCount
-    communes {
-      id
-      nom
-      codePostal
-    }
   }
 }
 
-# Un département spécifique
 query Paris {
   departement(code: "75") {
-    code
     nom
-    displayName
     communes {
       nom
       codePostal
@@ -445,40 +271,70 @@ query Paris {
   }
 }
 
-# Une commune par son code INSEE
-query ParisFirst {
+query Commune {
   commune(id: "75101") {
     nom
-    codePostal
+    displayName
     departement {
       nom
     }
   }
 }
 `,
-  },
+}
+```
 
-  logging: process.env.NODE_ENV === 'development' ? 'debug' : 'info',
-})
+### 8. `apps/api/src/index.ts`
 
-const server = createServer(yoga)
-const PORT = process.env.PORT || 4000
+```typescript
+import { createYoga } from "graphql-yoga";
+import { createServer } from "node:http";
+import { mergeTypeDefs, mergeResolvers } from "@graphql-tools/merge";
+import { makeExecutableSchema } from "@graphql-tools/schema";
 
-server.listen(PORT, () => {
-  console.log(`
-╔════════════════════════════════════════════════════════════╗
-║                                                            ║
-║   🚀 API GraphQL démarrée !                               ║
-║                                                            ║
-║   GraphiQL : http://localhost:${PORT}/graphql                ║
-║                                                            ║
-║   Types disponibles :                                      ║
-║   - Departement (avec communes)                           ║
-║   - Commune (avec departement)                            ║
-║                                                            ║
-╚════════════════════════════════════════════════════════════╝
-`)
-})
+import { prisma } from "./lib/prisma.js";
+import { isDev } from "./lib/isDev.js";
+import { GRAPHIQL_CONFIG } from "./lib/graphiql.js";
+import type { GraphQLContext } from "./generated/context.js";
+
+// Schema
+import { departementTypeDefs } from "./schema/departement.js";
+import { communeTypeDefs } from "./schema/commune.js";
+import { voieTypeDefs } from "./schema/voie.js";
+
+// Resolvers
+import { departementResolvers } from "./resolvers/departement.js";
+import { communeResolvers } from "./resolvers/commune.js";
+import { voieResolvers } from "./resolvers/voie.js";
+
+const typeDefs = mergeTypeDefs([
+  departementTypeDefs,
+  communeTypeDefs,
+  voieTypeDefs,
+]);
+
+const resolvers = mergeResolvers([
+  departementResolvers,
+  communeResolvers,
+  voieResolvers,
+]);
+
+const schema = makeExecutableSchema({ typeDefs, resolvers });
+
+const yoga = createYoga<GraphQLContext>({
+  schema,
+  context: () => ({ prisma }),
+  graphiql: GRAPHIQL_CONFIG,
+});
+
+const server = createServer(yoga);
+const port = process.env.PORT || 4000;
+
+server.listen(port, () => {
+  if (isDev) {
+    console.log(`GraphQL API: http://localhost:${port}/graphql`);
+  }
+});
 ```
 
 ---
@@ -486,20 +342,18 @@ server.listen(PORT, () => {
 ## Commandes à exécuter
 
 ```bash
-# Créer le dossier schema
-mkdir -p apps/api/src/schema
+# Générer les types TypeScript
+npm run codegen -w api
 
-# (Créer les fichiers ci-dessus)
-
-# Relancer l'API
+# Lancer l'API
 npm run dev:api
 ```
 
 ---
 
-## Checkpoint ✓
+## Checkpoint
 
-### Query 1 : Liste des départements avec communes
+### Query 1 : Liste des départements
 
 ```graphql
 query {
@@ -508,231 +362,128 @@ query {
     nom
     displayName
     communeCount
-    communes {
-      id
-      nom
-      codePostal
-    }
   }
 }
 ```
 
-**Résultat attendu :**
-```json
-{
-  "data": {
-    "departements": [
-      {
-        "code": "75",
-        "nom": "Paris",
-        "displayName": "75 - Paris",
-        "communeCount": 21,
-        "communes": [
-          { "id": "75101", "nom": "Paris 1er Arrondissement", "codePostal": "75001" },
-          { "id": "75102", "nom": "Paris 2e Arrondissement", "codePostal": "75002" }
-        ]
-      }
-    ]
-  }
-}
-```
-
-### Query 2 : Une commune avec son département
-
-```graphql
-query {
-  commune(id: "75101") {
-    nom
-    codePostal
-    displayName
-    voieCount
-    departement {
-      code
-      nom
-    }
-  }
-}
-```
-
-**Résultat attendu :**
-```json
-{
-  "data": {
-    "commune": {
-      "nom": "Paris 1er Arrondissement",
-      "codePostal": "75001",
-      "displayName": "Paris 1er Arrondissement - 75001",
-      "voieCount": 312,
-      "departement": {
-        "code": "75",
-        "nom": "Paris"
-      }
-    }
-  }
-}
-```
-
-### Query 3 : Naviguer dans les deux sens
+### Query 2 : Un département avec ses communes
 
 ```graphql
 query {
   departement(code: "75") {
     nom
+    displayName
+    communeCount
     communes {
+      id
       nom
-      departement {
-        nom
-      }
+      codePostal
+      voieCount
     }
   }
 }
 ```
 
-La navigation `departement → communes → departement` fonctionne !
+### Query 3 : Une commune avec son département
+
+```graphql
+query {
+  commune(id: "75101") {
+    nom
+    displayName
+    departement {
+      code
+      nom
+    }
+    voies {
+      id
+      nom
+    }
+  }
+}
+```
 
 ---
 
-## Comprendre le code en détail
+## Comprendre les resolvers
 
-### `t.exposeXxx()` vs `t.xxx()`
-
-```typescript
-// exposeString : Mappe directement un champ Prisma existant
-nom: t.exposeString('nom')
-// GraphQL: nom: String!  (non-null car le champ Prisma l'est)
-
-// string : Champ calculé, tu fournis le resolver
-fullName: t.string({
-  resolve: (parent) => `${parent.firstName} ${parent.lastName}`
-})
-// GraphQL: fullName: String!
-```
-
-### `t.relation()` : La magie des relations
+### Structure d'un resolver
 
 ```typescript
-// Pothos sait que 'communes' est une relation hasMany dans Prisma
-communes: t.relation('communes')
-// GraphQL: communes: [Commune!]!
+export const departementResolvers: Resolvers = {
+  // Resolvers pour Query (points d'entrée)
+  Query: {
+    departements: (parent, args, ctx, info) => { ... }
+  },
 
-// Équivalent manuel (si on devait le faire sans le plugin) :
-communes: t.field({
-  type: ['Commune'],
-  resolve: async (departement, _args, ctx) =>
-    ctx.prisma.commune.findMany({
-      where: { departementCode: departement.code }
-    })
-})
+  // Resolvers pour le type Departement
+  Departement: {
+    // Champs qui n'existent pas sur le model Prisma
+    displayName: (parent) => `${parent.code} - ${parent.nom}`,
+
+    // Relations
+    communes: (parent, _args, ctx) => ctx.prisma.commune.findMany(...)
+  },
+}
 ```
 
-Avec `t.relation()`, Pothos :
-1. Infère le type de retour
-2. Optimise les requêtes (batching, DataLoader)
-3. Évite les erreurs de typo
+### Les 4 arguments d'un resolver
 
-### Le paramètre `query` : Éviter le N+1
+| Argument | Description |
+|----------|-------------|
+| `parent` | L'objet parent (model Prisma grâce aux mappers) |
+| `args` | Arguments passés à ce champ |
+| `ctx` | Contexte (contient `prisma`) |
+| `info` | Métadonnées GraphQL (rarement utilisé) |
+
+### Champs automatiques vs calculés
 
 ```typescript
-resolve: (query, _root, _args, ctx) =>
-  ctx.prisma.departement.findMany({
-    ...query,  // ← CRUCIAL !
-    orderBy: { code: 'asc' },
-  })
+// parent contient { code: "75", nom: "Paris" } (du model Prisma)
+
+// Pas besoin de resolver pour 'code' et 'nom' :
+// GraphQL les résout automatiquement depuis parent
+
+// Resolver nécessaire pour displayName (n'existe pas en DB) :
+displayName: (parent) => `${parent.code} - ${parent.nom}`
 ```
-
-**Sans `...query` :**
-```sql
--- 1 requête pour les départements
-SELECT * FROM departements;
--- N requêtes pour les communes (N+1 problem)
-SELECT * FROM communes WHERE departement_code = '75';
-SELECT * FROM communes WHERE departement_code = '13';
-...
-```
-
-**Avec `...query` :**
-```sql
--- 1 seule requête optimisée
-SELECT d.*, c.*
-FROM departements d
-LEFT JOIN communes c ON c.departement_code = d.code
-ORDER BY d.code;
-```
-
-Pothos analyse la query GraphQL demandée et génère les `include` nécessaires.
-
----
-
-## Pièges courants
-
-| Problème | Cause | Solution |
-|----------|-------|----------|
-| `Unknown type "Departement"` | Fichier pas importé | Ajouter `import './departement.js'` |
-| Relation retourne `null` | Mauvais nom de relation | Vérifier `schema.prisma` |
-| N+1 queries visibles | `...query` oublié | Toujours spreader `query` |
-| Type mismatch | Champ pas dans le model | Vérifier Prisma types |
-| `Cannot return null` | Champ non-null mais data null | Ajouter `nullable: true` |
 
 ---
 
 ## Bonnes pratiques
 
-### 1. Toujours ajouter des descriptions
+### 1. Typer les resolvers
 
 ```typescript
-builder.prismaObject('Departement', {
-  description: 'Un département français',
-  fields: (t) => ({
-    code: t.exposeID('code', {
-      description: 'Code du département (ex: 75)',
-    }),
-  }),
-})
+import type { Resolvers } from '../generated/graphql.js'
+
+// Les types sont générés par codegen
+export const departementResolvers: Resolvers = { ... }
 ```
 
-Ces descriptions apparaissent dans GraphiQL et servent de documentation.
-
-### 2. Limiter les relations "hasMany"
+### 2. Limiter les relations
 
 ```typescript
-voies: t.relation('voies', {
-  query: () => ({
-    take: 100,  // Ne pas charger 6000 voies par défaut
-    orderBy: { nom: 'asc' as const },
-  }),
-})
+voies: (parent, _args, ctx) => {
+  return ctx.prisma.voie.findMany({
+    where: { communeId: parent.id },
+    take: 100,  // Limite pour éviter de charger 6000 voies
+    orderBy: { nom: 'asc' },
+  })
+}
 ```
 
-### 3. Préférer les champs calculés aux jointures
+### 3. Préfixer les arguments inutilisés
 
 ```typescript
-// Bien : Une seule requête COUNT
-voieCount: t.int({
-  resolve: (commune, _args, ctx) =>
-    ctx.prisma.voie.count({ where: { communeId: commune.id } })
-})
-
-// Moins bien : Charge toutes les voies juste pour compter
-voieCount: t.int({
-  resolve: async (commune) => commune.voies.length
-})
+// _parent, _args indiquent qu'ils ne sont pas utilisés
+departements: (_parent, _args, ctx) => { ... }
 ```
-
----
-
-## Ce qu'on a construit
-
-| Avant (Step 09) | Après (Step 10) |
-|-----------------|-----------------|
-| Queries de test (`hello`) | Types réels (`Departement`, `Commune`) |
-| Pas de données | Données BAN exposées |
-| Pas de relations | Navigation bidirectionnelle |
-| Fichier unique | Structure modulaire |
 
 ---
 
 ## Prochaine étape
 
-On a les types de base. Maintenant, ajoutons les voies et numéros avec une vraie recherche paginée.
+L'API GraphQL est prête ! On va maintenant la consommer depuis Nuxt.
 
-→ [11-graphql-queries.md](./11-graphql-queries.md) : Voies, Numéros, et pagination Relay
+→ [11-apollo-setup.md](./11-apollo-setup.md) : Configurer Apollo Client dans Nuxt

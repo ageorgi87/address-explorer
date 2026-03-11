@@ -1,57 +1,49 @@
-/**
- * Point d'entrée du serveur GraphQL
- *
- * Ce fichier ne fait que lancer le serveur.
- * La logique du schéma est dans ./graphql/schema.ts
- */
+import { createYoga } from "graphql-yoga";
+import { createServer } from "node:http";
+import { mergeTypeDefs, mergeResolvers } from "@graphql-tools/merge";
+import { makeExecutableSchema } from "@graphql-tools/schema";
 
-import { createYoga } from 'graphql-yoga'
-import { createServer } from 'node:http'
+import { prisma } from "./lib/prisma.js";
+import { isDev } from "./lib/isDev.js";
+import { GRAPHIQL_CONFIG } from "./lib/graphiql.js";
+import type { GraphQLContext } from "./generated/context.js";
 
-import { schema } from './graphql/schema.js'
-import { prisma } from './lib/prisma.js'
+// Schema
+import { departementTypeDefs } from "./schema/departement.js";
+import { communeTypeDefs } from "./schema/commune.js";
+import { voieTypeDefs } from "./schema/voie.js";
 
-// ============================================================
-// SERVEUR YOGA
-// ============================================================
+// Resolvers
+import { departementResolvers } from "./resolvers/departement.js";
+import { communeResolvers } from "./resolvers/commune.js";
+import { voieResolvers } from "./resolvers/voie.js";
 
-const yoga = createYoga({
+const typeDefs = mergeTypeDefs([
+  departementTypeDefs,
+  communeTypeDefs,
+  voieTypeDefs,
+]);
+
+const resolvers = mergeResolvers([
+  departementResolvers,
+  communeResolvers,
+  voieResolvers,
+]);
+
+// Créer le schema exécutable
+const schema = makeExecutableSchema({ typeDefs, resolvers });
+
+const yoga = createYoga<GraphQLContext>({
   schema,
-
-  // Contexte injecté dans chaque resolver
   context: () => ({ prisma }),
+  graphiql: GRAPHIQL_CONFIG,
+});
 
-  // GraphiQL (IDE interactif)
-  graphiql: {
-    title: 'Adresse Explorer API',
-    defaultQuery: `# Schéma géré par Pothos (100% TypeScript)
+const server = createServer(yoga);
+const port = process.env.PORT || 4000;
 
-query {
-  hello
-  serverTime
-  apiInfo {
-    name
-    version
-    description
+server.listen(port, () => {
+  if (isDev) {
+    console.log(`GraphQL API: http://localhost:${port}/graphql`);
   }
-}
-`,
-  },
-
-  logging: process.env.NODE_ENV === 'development' ? 'debug' : 'info',
-})
-
-const server = createServer(yoga)
-const PORT = process.env.PORT || 4000
-
-server.listen(PORT, () => {
-  console.log(`
-╔══════════════════════════════════════════════════════════╗
-║                                                          ║
-║   🚀 GraphQL API démarrée !                              ║
-║                                                          ║
-║   GraphiQL : http://localhost:${PORT}/graphql               ║
-║                                                          ║
-╚══════════════════════════════════════════════════════════╝
-`)
-})
+});

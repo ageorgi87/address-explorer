@@ -1,28 +1,18 @@
 import { PrismaClient } from '@prisma/client'
+import { isDev } from './isDev.js'
 
-// ============================================
-// SINGLETON PRISMA
-// ============================================
-
-// On crée une instance unique pour éviter :
-// - Trop de connexions à la base
-// - Memory leaks en dev avec le hot-reload
-
-// En dev, le hot-reload recrée les modules
-// On stocke l'instance dans globalThis pour la réutiliser
+// Singleton Prisma pour éviter les connexions multiples en dev (hot-reload)
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-// Créer ou réutiliser l'instance
+// Créer ou réutiliser l'instance existante
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({
-  // Logging : affiche les queries en dev
-  log: process.env.NODE_ENV === 'development'
-    ? ['query', 'error', 'warn']
-    : ['error'],
+  // En dev, on log les queries pour debug
+  log: isDev ? ['query', 'error', 'warn'] : ['error'],
 })
 
-// En dev, stocker dans globalThis pour le hot-reload
-if (process.env.NODE_ENV !== 'production') {
+// En dev, stocker dans globalThis pour persister entre les hot-reloads
+if (isDev) {
   globalForPrisma.prisma = prisma
 }

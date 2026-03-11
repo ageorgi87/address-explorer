@@ -1,504 +1,153 @@
-# Step 11 : Queries et pagination Relay
+# Step 11 : Configurer Apollo dans Nuxt
 
-> **Commit** : `step-11-graphql-queries`
-> **Durée** : ~40 min
-> **Prérequis** : Step 10 complété
+> **Commit** : `step-11-apollo-setup`
+> **Durée** : ~20 min
+> **Prérequis** : Step 10 complété, API qui tourne
 
 ---
 
 ## Objectif
 
-Ajouter les types Voie et Numero, et implémenter une recherche paginée.
+Connecter le front Nuxt à l'API GraphQL avec Apollo Client.
 
 À la fin de ce step :
-- Tous les types sont exposés (Departement, Commune, Voie, Numero)
-- Une query de recherche avec pagination Relay fonctionne
-- Tu comprends la différence entre offset et cursor pagination
+- Apollo Client est configuré dans Nuxt
+- Le front peut communiquer avec l'API
+- Tu comprends la différence avec la config Apollo dans Next.js
 
 ---
 
-## Pourquoi la pagination ?
+## Pourquoi Apollo Client ?
 
-### Le problème sans pagination
+### Les alternatives pour consommer GraphQL
 
-```graphql
-query {
-  voies {
-    nom
-  }
+| Client | Avantages | Inconvénients |
+|--------|-----------|---------------|
+| **Fetch natif** | Zéro dépendance | Pas de cache, gestion manuelle |
+| **urql** | Léger, extensible | Moins de plugins |
+| **graphql-request** | Ultra simple | Pas de cache |
+| **Apollo Client** | Cache normalisé, devtools, écosystème | Plus lourd |
+| **TanStack Query + graphql-request** | Excellent cache, familier React Query | Config manuelle |
+
+### Pourquoi choisir Apollo
+
+Pour notre formation :
+1. **Cache normalisé** : Les données sont stockées par ID, pas par query
+2. **Devtools** : Extension Chrome pour débugger
+3. **Module Nuxt officiel** : `@nuxtjs/apollo`
+4. **SSR natif** : Gère le rendu serveur automatiquement
+
+---
+
+## Apollo dans Next.js vs Nuxt
+
+### Next.js (Pages Router)
+
+```tsx
+// pages/_app.tsx
+import { ApolloClient, InMemoryCache, ApolloProvider } from '@apollo/client'
+
+const client = new ApolloClient({
+  uri: 'http://localhost:4000/graphql',
+  cache: new InMemoryCache(),
+})
+
+export default function App({ Component, pageProps }) {
+  return (
+    <ApolloProvider client={client}>
+      <Component {...pageProps} />
+    </ApolloProvider>
+  )
 }
 ```
 
-Avec 2.5 millions de voies en France, cette query :
-1. Chargerait 2.5M de lignes en mémoire
-2. Générerait une réponse JSON de ~500MB
-3. Prendrait plusieurs minutes
-4. Probablement crasherait
+**Points d'attention Next.js :**
+- Provider wrapper manuel
+- Gestion SSR compliquée (getServerSideProps + cache transfer)
+- Import explicite de chaque hook
 
-**On a besoin de pagination.**
-
----
-
-## Offset vs Cursor : Comparaison
-
-### Pagination Offset (classique)
-
-```
-GET /api/voies?page=2&limit=10
-```
-
-```sql
-SELECT * FROM voies ORDER BY nom LIMIT 10 OFFSET 10;
-```
-
-| Avantages | Inconvénients |
-|-----------|---------------|
-| Simple à comprendre | Instable si insertion/suppression |
-| "Page 5 sur 100" facile | Lent sur grandes tables (OFFSET coûteux) |
-| Navigation directe à page X | Doublons possibles entre pages |
-
-**Exemple de problème :**
-```
-Page 1 : [A, B, C, D, E]   ← Tu lis cette page
-                            ← Quelqu'un supprime "B"
-Page 2 : [E, F, G, H, I]   ← "E" apparaît deux fois !
-```
-
-### Pagination Cursor (Relay)
-
-```graphql
-{
-  voies(first: 10, after: "cursor_xxx") {
-    edges { node { nom } }
-    pageInfo { hasNextPage, endCursor }
-  }
-}
-```
-
-```sql
-SELECT * FROM voies WHERE id > 'cursor_xxx' ORDER BY nom LIMIT 10;
-```
-
-| Avantages | Inconvénients |
-|-----------|---------------|
-| Stable (pas de doublons) | Pas de "page 5 sur 100" |
-| Très performant (index) | Plus complexe côté client |
-| Fonctionne avec temps réel | Navigation directe impossible |
-
-**Le même exemple :**
-```
-Page 1 : [A, B, C, D, E]   cursor = "E"
-                            ← Quelqu'un supprime "B"
-Page 2 (after "E") : [F, G, H, I, J]   ← Correct !
-```
-
-### Pourquoi choisir Relay
-
-Pour notre cas (recherche d'adresses) :
-- On a 26 millions d'entrées
-- Les données changent (mises à jour quotidiennes)
-- On ne veut pas de "page 5 sur 2.6M"
-- On veut une pagination infinie fluide
-
-**Choix : Pagination Relay (cursor-based)**
-
----
-
-## Structure d'une réponse Relay
-
-```graphql
-{
-  searchVoies(query: "rivoli", first: 5) {
-    edges {
-      cursor             # Identifiant opaque pour paginer
-      node {             # L'item lui-même
-        id
-        nom
-      }
-    }
-    pageInfo {
-      hasNextPage        # Y a-t-il une page suivante ?
-      hasPreviousPage    # Y a-t-il une page précédente ?
-      startCursor        # Premier cursor de cette page
-      endCursor          # Dernier cursor (pour "after")
-    }
-    totalCount           # (optionnel) Nombre total de résultats
-  }
-}
-```
-
-### Navigation
-
-```graphql
-# Page suivante
-{ voies(first: 10, after: "endCursor") { ... } }
-
-# Page précédente
-{ voies(last: 10, before: "startCursor") { ... } }
-```
-
----
-
-## Les fichiers à créer
-
-### 1. `apps/api/src/schema/voie.ts`
+### Nuxt
 
 ```typescript
-/**
- * Type GraphQL : Voie
- *
- * Représente une voie (rue, avenue, boulevard...).
- * ~2.5 millions de voies en France.
- */
-
-import { builder } from '../builder.js'
-
-builder.prismaObject('Voie', {
-  description: 'Une voie (rue, avenue, boulevard, etc.)',
-
-  fields: (t) => ({
-    // ============================================================
-    // CHAMPS SCALAIRES
-    // ============================================================
-
-    // ID unique (code FANTOIR : commune + numéro de voie)
-    id: t.exposeID('id', {
-      description: 'ID unique de la voie (ex: 75101_0123)',
-    }),
-
-    // Nom de la voie
-    nom: t.exposeString('nom', {
-      description: 'Nom de la voie (ex: Rue de Rivoli)',
-    }),
-
-    // ============================================================
-    // RELATIONS
-    // ============================================================
-
-    // Relation vers la commune parente
-    commune: t.relation('commune', {
-      description: 'Commune où se trouve cette voie',
-    }),
-
-    // Relation vers les numéros de cette voie
-    // ATTENTION : Peut contenir des milliers de numéros !
-    numeros: t.relation('numeros', {
-      description: 'Numéros de cette voie',
-      query: () => ({
-        take: 100,  // Limite par défaut
-        orderBy: [
-          { numero: 'asc' as const },
-        ],
-      }),
-    }),
-
-    // ============================================================
-    // CHAMPS CALCULÉS
-    // ============================================================
-
-    // Nombre de numéros dans cette voie
-    numeroCount: t.int({
-      description: 'Nombre de numéros dans cette voie',
-      resolve: async (voie, _args, ctx) => {
-        return ctx.prisma.numero.count({
-          where: { voieId: voie.id },
-        })
+// nuxt.config.ts
+export default defineNuxtConfig({
+  modules: ['@nuxtjs/apollo'],
+  apollo: {
+    clients: {
+      default: {
+        httpEndpoint: 'http://localhost:4000/graphql',
       },
-    }),
-
-    // Adresse formatée avec commune
-    fullAddress: t.string({
-      description: 'Nom complet avec commune (ex: Rue de Rivoli, Paris 1er)',
-      resolve: async (voie, _args, ctx) => {
-        const commune = await ctx.prisma.commune.findUnique({
-          where: { id: voie.communeId },
-          select: { nom: true },
-        })
-        return `${voie.nom}, ${commune?.nom ?? 'Commune inconnue'}`
-      },
-    }),
-  }),
+    },
+  },
 })
 ```
 
-### 2. `apps/api/src/schema/numero.ts`
+**Avantages Nuxt :**
+- Configuration déclarative
+- SSR géré automatiquement
+- Auto-import des composables (`useQuery`, `useMutation`)
+- Pas de wrapper dans les composants
 
-```typescript
-/**
- * Type GraphQL : Numero
- *
- * Représente un numéro d'adresse avec ses coordonnées GPS.
- * ~26 millions de numéros en France.
- */
+### Tableau comparatif
 
-import { builder } from '../builder.js'
+| Aspect | Next.js | Nuxt |
+|--------|---------|------|
+| Configuration | `_app.tsx` + Provider | `nuxt.config.ts` |
+| Import hooks | Manuel | Auto-import |
+| SSR | `getServerSideProps` + cache hydration | Automatique |
+| Accès au client | `useApolloClient()` | `useApollo()` |
+| Multiple clients | Config custom | `clients: { auth: {...} }` |
 
-builder.prismaObject('Numero', {
-  description: 'Un numéro d\'adresse avec coordonnées GPS',
+---
 
-  fields: (t) => ({
-    // ============================================================
-    // CHAMPS SCALAIRES
-    // ============================================================
+## Les fichiers à modifier
 
-    id: t.exposeID('id', {
-      description: 'ID unique du numéro (ex: 75101_0123_00001)',
-    }),
+### 1. Mettre à jour `apps/web/package.json`
 
-    numero: t.exposeString('numero', {
-      description: 'Le numéro lui-même (ex: "1", "42", "100")',
-    }),
+Ajouter le module Apollo :
 
-    // Suffixe optionnel (bis, ter, A, B...)
-    suffixe: t.exposeString('suffixe', {
-      nullable: true,  // Peut être null
-      description: 'Suffixe optionnel (bis, ter, A, B...)',
-    }),
-
-    // Coordonnées GPS
-    lat: t.exposeFloat('lat', {
-      description: 'Latitude (ex: 48.856614)',
-    }),
-
-    lon: t.exposeFloat('lon', {
-      description: 'Longitude (ex: 2.352222)',
-    }),
-
-    // ============================================================
-    // RELATIONS
-    // ============================================================
-
-    voie: t.relation('voie', {
-      description: 'Voie à laquelle appartient ce numéro',
-    }),
-
-    // ============================================================
-    // CHAMPS CALCULÉS
-    // ============================================================
-
-    // Numéro formaté avec suffixe
-    displayNumero: t.string({
-      description: 'Numéro formaté (ex: "1 bis", "42")',
-      resolve: (numero) => {
-        return numero.suffixe
-          ? `${numero.numero} ${numero.suffixe}`
-          : numero.numero
-      },
-    }),
-
-    // Adresse complète
-    fullAddress: t.string({
-      description: 'Adresse complète (ex: "1 bis Rue de Rivoli")',
-      resolve: async (numero, _args, ctx) => {
-        const voie = await ctx.prisma.voie.findUnique({
-          where: { id: numero.voieId },
-          select: { nom: true },
-        })
-        const num = numero.suffixe
-          ? `${numero.numero} ${numero.suffixe}`
-          : numero.numero
-        return `${num} ${voie?.nom ?? 'Voie inconnue'}`
-      },
-    }),
-
-    // URL Google Maps
-    googleMapsUrl: t.string({
-      description: 'Lien Google Maps vers cette adresse',
-      resolve: (numero) => {
-        return `https://www.google.com/maps?q=${numero.lat},${numero.lon}`
-      },
-    }),
-  }),
-})
-```
-
-### 3. Mettre à jour `apps/api/src/schema/index.ts`
-
-```typescript
-/**
- * Point d'entrée du schéma GraphQL
- *
- * Importe tous les types et définit les queries.
- */
-
-import { builder } from '../builder.js'
-
-// ============================================================
-// IMPORT DE TOUS LES TYPES
-// ============================================================
-
-import './departement.js'
-import './commune.js'
-import './voie.js'    // NOUVEAU
-import './numero.js'  // NOUVEAU
-
-// ============================================================
-// QUERIES EXISTANTES
-// ============================================================
-
-builder.queryField('departements', (t) =>
-  t.prismaField({
-    type: ['Departement'],
-    description: 'Liste de tous les départements',
-    resolve: (query, _root, _args, ctx) =>
-      ctx.prisma.departement.findMany({
-        ...query,
-        orderBy: { code: 'asc' },
-      }),
-  })
-)
-
-builder.queryField('departement', (t) =>
-  t.prismaField({
-    type: 'Departement',
-    nullable: true,
-    description: 'Un département par son code',
-    args: {
-      code: t.arg.string({ required: true }),
-    },
-    resolve: (query, _root, args, ctx) =>
-      ctx.prisma.departement.findUnique({
-        ...query,
-        where: { code: args.code },
-      }),
-  })
-)
-
-builder.queryField('commune', (t) =>
-  t.prismaField({
-    type: 'Commune',
-    nullable: true,
-    description: 'Une commune par son code INSEE',
-    args: {
-      id: t.arg.string({ required: true }),
-    },
-    resolve: (query, _root, args, ctx) =>
-      ctx.prisma.commune.findUnique({
-        ...query,
-        where: { id: args.id },
-      }),
-  })
-)
-
-// ============================================================
-// NOUVELLES QUERIES
-// ============================================================
-
-// --- Une voie par ID ---
-builder.queryField('voie', (t) =>
-  t.prismaField({
-    type: 'Voie',
-    nullable: true,
-    description: 'Une voie par son ID FANTOIR',
-    args: {
-      id: t.arg.string({ required: true }),
-    },
-    resolve: (query, _root, args, ctx) =>
-      ctx.prisma.voie.findUnique({
-        ...query,
-        where: { id: args.id },
-      }),
-  })
-)
-
-// ============================================================
-// RECHERCHE AVEC PAGINATION RELAY
-// ============================================================
-// prismaConnection() crée automatiquement :
-// - Les arguments first, after, last, before
-// - La structure edges/pageInfo
-// - Les cursors
-// ============================================================
-
-builder.queryField('searchVoies', (t) =>
-  t.prismaConnection({
-    type: 'Voie',
-    cursor: 'id',  // Champ utilisé pour le cursor (doit être unique)
-    description: 'Recherche de voies par nom (pagination Relay)',
-
-    args: {
-      query: t.arg.string({
-        required: true,
-        description: 'Terme de recherche (ex: "rivoli")',
-      }),
-      departement: t.arg.string({
-        required: false,
-        description: 'Filtrer par code département (ex: "75")',
-      }),
-    },
-
-    // totalCount permet d'afficher "1234 résultats"
-    totalCount: async (_connection, args, ctx) => {
-      return ctx.prisma.voie.count({
-        where: buildVoieWhere(args),
-      })
-    },
-
-    resolve: async (query, _root, args, ctx) => {
-      return ctx.prisma.voie.findMany({
-        ...query,  // Contient take, cursor, skip générés par Pothos
-        where: buildVoieWhere(args),
-        orderBy: { nom: 'asc' },
-      })
-    },
-  })
-)
-
-// Helper pour construire la clause WHERE
-function buildVoieWhere(args: { query: string; departement?: string | null }) {
-  return {
-    nom: {
-      contains: args.query,
-      mode: 'insensitive' as const,
-    },
-    // Filtre optionnel par département
-    ...(args.departement && {
-      commune: {
-        departementCode: args.departement,
-      },
-    }),
+```json
+{
+  "dependencies": {
+    "@nuxtjs/apollo": "^5.0.0"
   }
 }
+```
 
-// ============================================================
-// RECHERCHE DE COMMUNES (AUSSI PAGINÉE)
-// ============================================================
+### 2. Mettre à jour `apps/web/nuxt.config.ts`
 
-builder.queryField('searchCommunes', (t) =>
-  t.prismaConnection({
-    type: 'Commune',
-    cursor: 'id',
-    description: 'Recherche de communes par nom',
+```typescript
+export default defineNuxtConfig({
+  modules: [
+    '@nuxt/ui',
+    '@nuxtjs/apollo',
+  ],
 
-    args: {
-      query: t.arg.string({ required: true }),
-    },
+  future: {
+    compatibilityVersion: 4,
+  },
 
-    totalCount: async (_connection, args, ctx) => {
-      return ctx.prisma.commune.count({
-        where: {
-          nom: { contains: args.query, mode: 'insensitive' },
+  compatibilityDate: '2024-11-01',
+
+  apollo: {
+    clients: {
+      default: {
+        httpEndpoint: process.env.NUXT_PUBLIC_GRAPHQL_URL || 'http://localhost:4000/graphql',
+        httpLinkOptions: {
+          credentials: 'same-origin',
         },
-      })
+        connectToDevTools: process.env.NODE_ENV === 'development',
+      },
     },
+    autoImports: true,
+  },
 
-    resolve: async (query, _root, args, ctx) => {
-      return ctx.prisma.commune.findMany({
-        ...query,
-        where: {
-          nom: { contains: args.query, mode: 'insensitive' },
-        },
-        orderBy: { nom: 'asc' },
-      })
+  runtimeConfig: {
+    public: {
+      graphqlUrl: process.env.NUXT_PUBLIC_GRAPHQL_URL || 'http://localhost:4000/graphql',
     },
-  })
-)
-
-// ============================================================
-// EXPORT DU SCHEMA
-// ============================================================
-
-export const schema = builder.toSchema()
+  },
+})
 ```
 
 ---
@@ -506,263 +155,85 @@ export const schema = builder.toSchema()
 ## Commandes à exécuter
 
 ```bash
-# (Créer les nouveaux fichiers voie.ts et numero.ts)
+# À la racine du monorepo
+npm install
 
-# Relancer l'API
+# Terminal 1 : Lancer l'API
 npm run dev:api
+
+# Terminal 2 : Lancer le front
+npm run dev:web
 ```
 
 ---
 
-## Checkpoint ✓
+## Checkpoint
 
-### Query 1 : Recherche simple
+### 1. Pas d'erreur au démarrage
 
-```graphql
-query {
-  searchVoies(query: "rivoli", first: 5) {
-    totalCount
-    edges {
-      cursor
-      node {
-        id
-        nom
-        fullAddress
-        commune {
-          nom
-          codePostal
-        }
-      }
-    }
-    pageInfo {
-      hasNextPage
-      hasPreviousPage
-      startCursor
-      endCursor
-    }
-  }
-}
-```
+La console de `npm run dev:web` ne doit pas montrer d'erreur liée à Apollo.
 
-**Résultat attendu :**
-```json
-{
-  "data": {
-    "searchVoies": {
-      "totalCount": 3,
-      "edges": [
-        {
-          "cursor": "Voie:75101_xxxx",
-          "node": {
-            "id": "75101_xxxx",
-            "nom": "Rue de Rivoli",
-            "fullAddress": "Rue de Rivoli, Paris 1er Arrondissement",
-            "commune": {
-              "nom": "Paris 1er Arrondissement",
-              "codePostal": "75001"
-            }
-          }
-        }
-      ],
-      "pageInfo": {
-        "hasNextPage": false,
-        "hasPreviousPage": false,
-        "startCursor": "Voie:75101_xxxx",
-        "endCursor": "Voie:75104_yyyy"
-      }
-    }
-  }
-}
-```
+### 2. Vérifier les auto-imports
 
-### Query 2 : Page suivante
+Après le build initial :
 
-Utilise `endCursor` de la réponse précédente :
-
-```graphql
-query {
-  searchVoies(query: "rue", first: 10, after: "Voie:75101_xxxx") {
-    edges {
-      node {
-        nom
-      }
-    }
-    pageInfo {
-      hasNextPage
-      endCursor
-    }
-  }
-}
-```
-
-### Query 3 : Détail d'une voie avec ses numéros
-
-```graphql
-query {
-  voie(id: "75101_0123") {
-    nom
-    numeroCount
-    commune {
-      nom
-    }
-    numeros {
-      displayNumero
-      lat
-      lon
-      googleMapsUrl
-    }
-  }
-}
-```
-
-### Query 4 : Recherche avec filtre département
-
-```graphql
-query {
-  searchVoies(query: "avenue", first: 10, departement: "75") {
-    totalCount
-    edges {
-      node {
-        nom
-        commune {
-          nom
-        }
-      }
-    }
-  }
-}
-```
-
----
-
-## Comprendre `prismaConnection()`
-
-```typescript
-builder.queryField('searchVoies', (t) =>
-  t.prismaConnection({
-    type: 'Voie',
-    cursor: 'id',
-
-    resolve: async (query, _root, args, ctx) => {
-      return ctx.prisma.voie.findMany({
-        ...query,  // ← Contient take, cursor, skip
-        where: { ... },
-        orderBy: { nom: 'asc' },
-      })
-    },
-  })
-)
-```
-
-### Ce que fait Pothos automatiquement
-
-1. **Ajoute les arguments** : `first`, `after`, `last`, `before`
-2. **Transforme le résultat** en format `edges`/`pageInfo`
-3. **Génère les cursors** à partir du champ spécifié (`id`)
-4. **Calcule `hasNextPage`/`hasPreviousPage`**
-
-### Le paramètre `query`
-
-```typescript
-// Ce que contient `query` quand tu fais searchVoies(first: 10, after: "xxx")
-{
-  take: 11,        // first + 1 (pour savoir s'il y a une page suivante)
-  cursor: { id: "xxx" },
-  skip: 1,         // Sauter le cursor lui-même
-  // + select/include pour les relations demandées
-}
-```
-
-### Le paramètre `cursor`
-
-```typescript
-cursor: 'id'  // Le champ utilisé pour paginer
-```
-
-Ce champ doit être :
-- **Unique** (sinon doublons possibles)
-- **Ordonnable** (sinon ordre incohérent)
-- **Stable** (ne change pas dans le temps)
-
-L'`id` est parfait. Évite les champs comme `createdAt` (deux items pourraient avoir la même valeur).
-
----
-
-## Pièges courants
-
-| Problème | Cause | Solution |
-|----------|-------|----------|
-| `edges` vide | Pas de données matching | Vérifier les données importées |
-| `cursor` invalide | Format incorrect | Le cursor doit être exactement celui retourné |
-| Pagination ne marche pas | `...query` oublié | Spreader `query` dans findMany |
-| Ordre incohérent | Pas de `orderBy` | Toujours ajouter un `orderBy` stable |
-| `totalCount` lent | Pas d'index | Vérifier les index PostgreSQL |
-
----
-
-## Performance : Index pour la recherche
-
-Notre recherche utilise `contains` (LIKE '%xxx%'). Pour être performant sur 2.5M de lignes, on a besoin de l'index trigramme créé au Step 07.
-
-Vérifier qu'il existe :
-```sql
-SELECT indexname FROM pg_indexes WHERE tablename = 'voies' AND indexname LIKE '%trgm%';
-```
-
-Si manquant :
 ```bash
-cd apps/api
-npx prisma db execute --file prisma/fts-indexes.sql
+cat apps/web/.nuxt/imports.d.ts | grep -i apollo
 ```
+
+Tu dois voir :
+```typescript
+const useApollo: typeof import('@nuxtjs/apollo')['useApollo']
+const useAsyncQuery: typeof import('@nuxtjs/apollo')['useAsyncQuery']
+```
+
+### 3. Accéder à l'app
+
+Ouvre `http://localhost:3000`. La page doit s'afficher sans erreur.
 
 ---
 
-## Voir le schéma GraphQL généré
+## Les composables disponibles
 
-Pour debug, tu peux imprimer le schéma SDL :
+Le module `@nuxtjs/apollo` auto-importe ces composables :
+
+| Composable | Usage | Équivalent React |
+|------------|-------|------------------|
+| `useApollo()` | Accès direct au client | `useApolloClient()` |
+| `useAsyncQuery()` | Query avec SSR (recommandé) | N/A (spécifique Nuxt) |
+| `useLazyAsyncQuery()` | Query lazy avec SSR | N/A |
+| `useQuery()` | Query classique Apollo | `useQuery()` |
+| `useMutation()` | Mutations | `useMutation()` |
+
+### Quelle méthode utiliser ?
 
 ```typescript
-// Dans index.ts (temporairement)
-import { printSchema } from 'graphql'
-console.log(printSchema(schema))
-```
+// RECOMMANDÉ pour la plupart des cas
+const { data, pending, error } = await useAsyncQuery(MY_QUERY)
 
-Tu verras tous les types générés, y compris ceux de Relay :
-```graphql
-type VoieConnection {
-  edges: [VoieEdge!]!
-  pageInfo: PageInfo!
-  totalCount: Int!
-}
+// Pour les queries déclenchées par l'utilisateur
+const { data, pending, execute } = await useLazyAsyncQuery(SEARCH_QUERY)
 
-type VoieEdge {
-  cursor: String!
-  node: Voie!
-}
-
-type PageInfo {
-  hasNextPage: Boolean!
-  hasPreviousPage: Boolean!
-  startCursor: String
-  endCursor: String
-}
+// Pour les cas simples, attention au SSR
+const { result, loading } = useQuery(MY_QUERY)
 ```
 
 ---
 
-## Résumé de ce qu'on a construit
+## Installer les Apollo DevTools
 
-| Type | Description | Queries |
-|------|-------------|---------|
-| Departement | 101 départements | `departements`, `departement(code)` |
-| Commune | ~35k communes | `commune(id)`, `searchCommunes` |
-| Voie | ~2.5M voies | `voie(id)`, `searchVoies` |
-| Numero | ~26M numéros | (via relation voie) |
+Pour débugger efficacement :
+
+1. Installe l'extension Chrome : [Apollo Client Devtools](https://chrome.google.com/webstore/detail/apollo-client-devtools/jdkknkkbebbapilgoeccciglkfbmbnfm)
+
+2. Vérifie que `connectToDevTools: true` est dans la config
+
+3. Ouvre les DevTools Chrome > onglet "Apollo"
 
 ---
 
 ## Prochaine étape
 
-L'API est prête ! Il est temps de la consommer depuis Nuxt.
+Apollo est configuré. Faisons notre première vraie query !
 
-→ [12-apollo-setup.md](./12-apollo-setup.md) : Configurer Apollo Client dans Nuxt
+→ [12-first-query.md](./12-first-query.md) : Afficher les départements avec useAsyncQuery

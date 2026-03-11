@@ -1,8 +1,8 @@
-# Step 17 : Sécuriser et déployer
+# Step 16 : Sécuriser et déployer
 
-> **Commit** : `step-17-deploy`
+> **Commit** : `step-16-deploy`
 > **Durée** : ~60 min
-> **Prérequis** : Step 16 complété, comptes Railway + Vercel
+> **Prérequis** : Step 15 complété, comptes Railway + Vercel
 
 ---
 

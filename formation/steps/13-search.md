@@ -1,8 +1,8 @@
-# Step 14 : Recherche avec v-model et debounce
+# Step 13 : Recherche avec v-model et debounce
 
-> **Commit** : `step-14-search`
+> **Commit** : `step-13-search`
 > **Durée** : ~40 min
-> **Prérequis** : Step 13 complété, API qui tourne
+> **Prérequis** : Step 12 complété, API qui tourne
 
 ---
 
@@ -851,4 +851,4 @@ const { data } = await useAsyncData(
 
 ## Prochaine étape
 
-→ [15-dynamic-route.md](./15-dynamic-route.md) : Page dynamique /communes/[id]
+→ [14-dynamic-route.md](./14-dynamic-route.md) : Page dynamique /communes/[id]

@@ -1,8 +1,8 @@
-# Step 16 : Carte MapLibre
+# Step 15 : Carte MapLibre
 
-> **Commit** : `step-16-map`
+> **Commit** : `step-15-map`
 > **Durée** : ~45 min
-> **Prérequis** : Step 15 complété
+> **Prérequis** : Step 14 complété
 
 ---
 
@@ -918,4 +918,4 @@ function addMarker(coords: [number, number]) {
 
 ## Prochaine étape
 
-→ [17-deploy.md](./17-deploy.md) : Sécuriser et déployer
+→ [16-deploy.md](./16-deploy.md) : Sécuriser et déployer
