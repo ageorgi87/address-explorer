@@ -1,4 +1,6 @@
-export const voieTypeDefs = /* GraphQL */ `
+import { gql } from "graphql-tag";
+
+export const voieTypeDefs = gql`
   "Voie (rue, avenue, etc.)"
   type Voie {
     "Identifiant unique"
@@ -10,4 +12,4 @@ export const voieTypeDefs = /* GraphQL */ `
     "Commune parente"
     commune: Commune!
   }
-`
+`;

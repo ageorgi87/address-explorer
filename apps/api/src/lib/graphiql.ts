@@ -1,3 +1,7 @@
+/**
+ * Configuration de l'interface GraphiQL
+ */
+
 export const GRAPHIQL_CONFIG = {
   title: "Adresse Explorer API",
   defaultQuery: `# Explore l'API !

@@ -1,4 +1,6 @@
-export const communeTypeDefs = /* GraphQL */ `
+import { gql } from "graphql-tag";
+
+export const communeTypeDefs = gql`
   extend type Query {
     "Une commune par son code INSEE"
     commune(id: String!): Commune
@@ -33,4 +35,4 @@ export const communeTypeDefs = /* GraphQL */ `
     "Liste des voies (max 100)"
     voies: [Voie!]!
   }
-`
+`;

@@ -1,4 +1,6 @@
-export const departementTypeDefs = /* GraphQL */ `
+import { gql } from "graphql-tag";
+
+export const departementTypeDefs = gql`
   type Query {
     "Liste de tous les départements"
     departements: [Departement!]!
@@ -24,4 +26,4 @@ export const departementTypeDefs = /* GraphQL */ `
     "Liste des communes"
     communes: [Commune!]!
   }
-`
+`;

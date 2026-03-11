@@ -8,12 +8,9 @@ import { isDev } from "./lib/isDev.js";
 import { GRAPHIQL_CONFIG } from "./lib/graphiql.js";
 import type { GraphQLContext } from "./generated/context.js";
 
-// Schema
 import { departementTypeDefs } from "./schema/departement.js";
 import { communeTypeDefs } from "./schema/commune.js";
 import { voieTypeDefs } from "./schema/voie.js";
-
-// Resolvers
 import { departementResolvers } from "./resolvers/departement.js";
 import { communeResolvers } from "./resolvers/commune.js";
 import { voieResolvers } from "./resolvers/voie.js";
@@ -30,7 +27,6 @@ const resolvers = mergeResolvers([
   voieResolvers,
 ]);
 
-// Créer le schema exécutable
 const schema = makeExecutableSchema({ typeDefs, resolvers });
 
 const yoga = createYoga<GraphQLContext>({
