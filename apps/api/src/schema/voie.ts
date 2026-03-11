@@ -11,5 +11,26 @@ export const voieTypeDefs = gql`
 
     "Commune parente"
     commune: Commune!
+
+    "Numéros de la voie"
+    numeros: [Numero!]!
+  }
+
+  "Numéro d'adresse"
+  type Numero {
+    "Identifiant unique"
+    id: String!
+
+    "Numéro"
+    numero: String!
+
+    "Suffixe (bis, ter, etc.)"
+    suffixe: String
+
+    "Latitude"
+    lat: Float!
+
+    "Longitude"
+    lon: Float!
   }
 `;

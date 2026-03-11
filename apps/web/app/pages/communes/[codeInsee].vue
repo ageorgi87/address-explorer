@@ -11,6 +11,22 @@ const { data, pending, error } = await useAsyncQuery<CommuneData>(
 
 const commune = computed(() => data.value?.commune)
 
+// Transformer les données pour la carte (max 100 adresses)
+const mapAddresses = computed(() => {
+  if (!commune.value?.voies) return []
+
+  return commune.value.voies
+    .flatMap(voie =>
+      (voie.numeros ?? []).map(num => ({
+        id: num.id,
+        lat: num.lat,
+        lon: num.lon,
+        label: `${num.numero}${num.suffixe ?? ''} ${voie.nom}`
+      }))
+    )
+    .slice(0, 100)
+})
+
 useSeoMeta({
   title: () => commune.value
     ? `${commune.value.nom} (${commune.value.codePostal}) - Explorateur`
@@ -78,6 +94,23 @@ useSeoMeta({
           <div class="text-gray-500">voies affichées</div>
         </UCard>
       </div>
+
+      <UCard v-if="mapAddresses.length > 0" class="mb-8">
+        <template #header>
+          <h2 class="font-semibold">Carte des adresses</h2>
+        </template>
+
+        <div class="h-[400px]">
+          <ClientOnly>
+            <AddressMap :addresses="mapAddresses" />
+            <template #fallback>
+              <div class="h-full flex items-center justify-center bg-gray-100">
+                <p class="text-gray-500">Chargement de la carte...</p>
+              </div>
+            </template>
+          </ClientOnly>
+        </div>
+      </UCard>
 
       <UCard>
         <template #header>

@@ -14,6 +14,13 @@ export interface CommuneData {
     voies: {
       id: string;
       nom: string;
+      numeros: {
+        id: string;
+        numero: string;
+        suffixe: string | null;
+        lat: number;
+        lon: number;
+      }[];
     }[];
   } | null;
 }
@@ -33,6 +40,13 @@ export const COMMUNE_QUERY = gql`
       voies {
         id
         nom
+        numeros {
+          id
+          numero
+          suffixe
+          lat
+          lon
+        }
       }
     }
   }

@@ -9,5 +9,13 @@ export const voieResolvers: Resolvers = {
       if (!commune) throw new Error(`Commune ${parent.communeId} introuvable`)
       return commune
     },
+
+    numeros: (parent, _args, ctx) => {
+      return ctx.prisma.numero.findMany({
+        where: { voieId: parent.id },
+        orderBy: { numero: 'asc' },
+        take: 100,
+      })
+    },
   },
 }

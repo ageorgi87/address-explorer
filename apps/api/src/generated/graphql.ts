@@ -50,6 +50,21 @@ export type Departement = {
   nom: Scalars['String']['output'];
 };
 
+/** Numéro d'adresse */
+export type Numero = {
+  __typename?: 'Numero';
+  /** Identifiant unique */
+  id: Scalars['String']['output'];
+  /** Latitude */
+  lat: Scalars['Float']['output'];
+  /** Longitude */
+  lon: Scalars['Float']['output'];
+  /** Numéro */
+  numero: Scalars['String']['output'];
+  /** Suffixe (bis, ter, etc.) */
+  suffixe: Maybe<Scalars['String']['output']>;
+};
+
 export type Query = {
   __typename?: 'Query';
   /** Une commune par son code INSEE */
@@ -95,6 +110,8 @@ export type Voie = {
   id: Scalars['String']['output'];
   /** Nom de la voie */
   nom: Scalars['String']['output'];
+  /** Numéros de la voie */
+  numeros: Array<Numero>;
 };
 
 export type WithIndex<TObject> = TObject & Record<string, any>;
@@ -174,7 +191,9 @@ export type ResolversTypes = ResolversObject<{
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
   Commune: ResolverTypeWrapper<CommuneModel>;
   Departement: ResolverTypeWrapper<DepartementModel>;
+  Float: ResolverTypeWrapper<Scalars['Float']['output']>;
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
+  Numero: ResolverTypeWrapper<Numero>;
   Query: ResolverTypeWrapper<Record<PropertyKey, never>>;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
   Voie: ResolverTypeWrapper<VoieModel>;
@@ -185,7 +204,9 @@ export type ResolversParentTypes = ResolversObject<{
   Boolean: Scalars['Boolean']['output'];
   Commune: CommuneModel;
   Departement: DepartementModel;
+  Float: Scalars['Float']['output'];
   Int: Scalars['Int']['output'];
+  Numero: Numero;
   Query: Record<PropertyKey, never>;
   String: Scalars['String']['output'];
   Voie: VoieModel;
@@ -208,6 +229,14 @@ export type DepartementResolvers<ContextType = GraphQLContext, ParentType extend
   nom?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 }>;
 
+export type NumeroResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Numero'] = ResolversParentTypes['Numero']> = ResolversObject<{
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  lat?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  lon?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  numero?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  suffixe?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+}>;
+
 export type QueryResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = ResolversObject<{
   commune?: Resolver<Maybe<ResolversTypes['Commune']>, ParentType, ContextType, RequireFields<QueryCommuneArgs, 'codeInsee'>>;
   communes?: Resolver<Array<ResolversTypes['Commune']>, ParentType, ContextType, Partial<QueryCommunesArgs>>;
@@ -220,11 +249,13 @@ export type VoieResolvers<ContextType = GraphQLContext, ParentType extends Resol
   commune?: Resolver<ResolversTypes['Commune'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   nom?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  numeros?: Resolver<Array<ResolversTypes['Numero']>, ParentType, ContextType>;
 }>;
 
 export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   Commune?: CommuneResolvers<ContextType>;
   Departement?: DepartementResolvers<ContextType>;
+  Numero?: NumeroResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   Voie?: VoieResolvers<ContextType>;
 }>;

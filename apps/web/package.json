@@ -10,6 +10,7 @@
     "@nuxt/ui": "^2.22.3",
     "@nuxtjs/apollo": "^5.0.0-alpha.16",
     "@vueuse/nuxt": "^14.2.1",
+    "maplibre-gl": "^5.20.0",
     "nuxt": "^3.15.0"
   },
   "devDependencies": {
