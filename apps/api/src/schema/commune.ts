@@ -3,10 +3,10 @@ import { gql } from "graphql-tag";
 export const communeTypeDefs = gql`
   extend type Query {
     "Une commune par son code INSEE"
-    commune(id: String!): Commune
+    commune(codeInsee: String!): Commune
 
-    "Communes d'un département"
-    communesByDepartement(departementCode: String!): [Commune!]!
+    "Liste des communes (filtrables)"
+    communes(departementCode: String, codePostal: String): [Commune!]!
   }
 
   "Commune française"
@@ -19,9 +19,6 @@ export const communeTypeDefs = gql`
 
     "Code postal principal"
     codePostal: String!
-
-    "Nom formaté avec code postal"
-    displayName: String!
 
     "Département parent"
     departement: Departement!

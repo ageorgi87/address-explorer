@@ -27,8 +27,6 @@ export type Commune = {
   departement: Departement;
   /** Code du département */
   departementCode: Scalars['String']['output'];
-  /** Nom formaté avec code postal */
-  displayName: Scalars['String']['output'];
   /** Code INSEE (identifiant unique) */
   id: Scalars['String']['output'];
   /** Nom de la commune */
@@ -48,8 +46,6 @@ export type Departement = {
   communeCount: Scalars['Int']['output'];
   /** Liste des communes */
   communes: Array<Commune>;
-  /** Nom formaté (ex: 75 - Paris) */
-  displayName: Scalars['String']['output'];
   /** Nom officiel */
   nom: Scalars['String']['output'];
 };
@@ -58,26 +54,23 @@ export type Query = {
   __typename?: 'Query';
   /** Une commune par son code INSEE */
   commune: Maybe<Commune>;
-  /** Communes d'un département */
-  communesByDepartement: Array<Commune>;
+  /** Liste des communes (filtrables) */
+  communes: Array<Commune>;
   /** Un département par son code */
   departement: Maybe<Departement>;
   /** Liste de tous les départements */
   departements: Array<Departement>;
-  /** Message de bienvenue */
-  hello: Scalars['String']['output'];
-  /** Heure du serveur (ISO 8601) */
-  serverTime: Scalars['String']['output'];
 };
 
 
 export type QueryCommuneArgs = {
-  id: Scalars['String']['input'];
+  codeInsee: Scalars['String']['input'];
 };
 
 
-export type QueryCommunesByDepartementArgs = {
-  departementCode: Scalars['String']['input'];
+export type QueryCommunesArgs = {
+  codePostal?: InputMaybe<Scalars['String']['input']>;
+  departementCode?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -194,7 +187,6 @@ export type CommuneResolvers<ContextType = GraphQLContext, ParentType extends Re
   codePostal?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   departement?: Resolver<ResolversTypes['Departement'], ParentType, ContextType>;
   departementCode?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  displayName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   nom?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   voieCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
@@ -205,17 +197,14 @@ export type DepartementResolvers<ContextType = GraphQLContext, ParentType extend
   code?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   communeCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   communes?: Resolver<Array<ResolversTypes['Commune']>, ParentType, ContextType>;
-  displayName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   nom?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 }>;
 
 export type QueryResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = ResolversObject<{
-  commune?: Resolver<Maybe<ResolversTypes['Commune']>, ParentType, ContextType, RequireFields<QueryCommuneArgs, 'id'>>;
-  communesByDepartement?: Resolver<Array<ResolversTypes['Commune']>, ParentType, ContextType, RequireFields<QueryCommunesByDepartementArgs, 'departementCode'>>;
+  commune?: Resolver<Maybe<ResolversTypes['Commune']>, ParentType, ContextType, RequireFields<QueryCommuneArgs, 'codeInsee'>>;
+  communes?: Resolver<Array<ResolversTypes['Commune']>, ParentType, ContextType, Partial<QueryCommunesArgs>>;
   departement?: Resolver<Maybe<ResolversTypes['Departement']>, ParentType, ContextType, RequireFields<QueryDepartementArgs, 'code'>>;
   departements?: Resolver<Array<ResolversTypes['Departement']>, ParentType, ContextType>;
-  hello?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  serverTime?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 }>;
 
 export type VoieResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Voie'] = ResolversParentTypes['Voie']> = ResolversObject<{

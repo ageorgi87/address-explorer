@@ -4,21 +4,23 @@ export const communeResolvers: Resolvers = {
   Query: {
     commune: (_parent, args, ctx) => {
       return ctx.prisma.commune.findUnique({
-        where: { id: args.id },
+        where: { id: args.codeInsee },
       })
     },
 
-    communesByDepartement: (_parent, args, ctx) => {
+    communes: (_parent, args, ctx) => {
       return ctx.prisma.commune.findMany({
-        where: { departementCode: args.departementCode },
+        where: {
+          ...(args.departementCode && { departementCode: args.departementCode }),
+          ...(args.codePostal && { codePostal: args.codePostal }),
+        },
         orderBy: { nom: 'asc' },
+        take: 100,
       })
     },
   },
 
   Commune: {
-    displayName: (parent) => `${parent.nom} - ${parent.codePostal}`,
-
     departement: async (parent, _args, ctx) => {
       const dept = await ctx.prisma.departement.findUnique({
         where: { code: parent.departementCode },

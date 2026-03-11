@@ -16,8 +16,6 @@ export const departementResolvers: Resolvers = {
   },
 
   Departement: {
-    displayName: (parent) => `${parent.code} - ${parent.nom}`,
-
     communeCount: (parent, _args, ctx) => {
       return ctx.prisma.commune.count({
         where: { departementCode: parent.code },

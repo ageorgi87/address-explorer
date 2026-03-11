@@ -17,9 +17,6 @@ export const departementTypeDefs = gql`
     "Nom officiel"
     nom: String!
 
-    "Nom formaté (ex: 75 - Paris)"
-    displayName: String!
-
     "Nombre de communes"
     communeCount: Int!
 

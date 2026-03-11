@@ -10,7 +10,6 @@ query Departements {
   departements {
     code
     nom
-    displayName
     communeCount
   }
 }
@@ -27,9 +26,9 @@ query Paris {
 }
 
 query Commune {
-  commune(id: "75101") {
+  commune(codeInsee: "75101") {
     nom
-    displayName
+    codePostal
     departement {
       nom
     }
