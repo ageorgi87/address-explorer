@@ -1,62 +1,66 @@
 <script setup lang="ts">
-import type { Departement } from '../queries/departements'
-import { DEPARTEMENT_COMMUNES_QUERY, type DepartementCommunesData, type CommuneBasic } from '../queries/departementCommunes'
+import type { Departement } from "~/queries/departements";
+import {
+  DEPARTEMENT_COMMUNES_QUERY,
+  type DepartementCommunesData,
+  type CommuneBasic,
+} from "~/queries/departementCommunes";
 
 const props = defineProps<{
-  departements: Departement[]
-}>()
+  departements: Departement[];
+}>();
 
-const { clients } = useApollo()
+const { clients } = useApollo();
 
-const openDepts = ref<Set<string>>(new Set())
-const communesCache = ref<Record<string, CommuneBasic[]>>({})
-const loadingDepts = ref<Set<string>>(new Set())
+const openDepts = ref<Set<string>>(new Set());
+const communesCache = ref<Record<string, CommuneBasic[]>>({});
+const loadingDepts = ref<Set<string>>(new Set());
 
 async function toggleDepartement(code: string) {
   if (openDepts.value.has(code)) {
-    openDepts.value.delete(code)
-    openDepts.value = new Set(openDepts.value)
+    openDepts.value.delete(code);
+    openDepts.value = new Set(openDepts.value);
   } else {
-    openDepts.value.add(code)
-    openDepts.value = new Set(openDepts.value)
-    await loadCommunes(code)
+    openDepts.value.add(code);
+    openDepts.value = new Set(openDepts.value);
+    await loadCommunes(code);
   }
 }
 
 async function loadCommunes(code: string) {
-  if (communesCache.value[code] || loadingDepts.value.has(code)) return
+  if (communesCache.value[code] || loadingDepts.value.has(code)) return;
 
-  loadingDepts.value.add(code)
-  loadingDepts.value = new Set(loadingDepts.value)
+  loadingDepts.value.add(code);
+  loadingDepts.value = new Set(loadingDepts.value);
 
   try {
     const { data } = await clients!.default.query<DepartementCommunesData>({
       query: DEPARTEMENT_COMMUNES_QUERY,
       variables: { code },
-    })
+    });
 
     if (data?.departement?.communes) {
       communesCache.value = {
         ...communesCache.value,
-        [code]: data.departement.communes
-      }
+        [code]: data.departement.communes,
+      };
     }
   } finally {
-    loadingDepts.value.delete(code)
-    loadingDepts.value = new Set(loadingDepts.value)
+    loadingDepts.value.delete(code);
+    loadingDepts.value = new Set(loadingDepts.value);
   }
 }
 
 function isOpen(code: string) {
-  return openDepts.value.has(code)
+  return openDepts.value.has(code);
 }
 
 function isLoading(code: string) {
-  return loadingDepts.value.has(code)
+  return loadingDepts.value.has(code);
 }
 
 function getCommunes(code: string) {
-  return communesCache.value[code] ?? []
+  return communesCache.value[code] ?? [];
 }
 </script>
 
@@ -72,7 +76,9 @@ function getCommunes(code: string) {
         @click="toggleDepartement(dept.code)"
       >
         <div class="flex items-center gap-3">
-          <span class="text-xs font-mono bg-indigo-500/20 text-indigo-400 px-2 py-1 rounded">
+          <span
+            class="text-xs font-mono bg-indigo-500/20 text-indigo-400 px-2 py-1 rounded"
+          >
             {{ dept.code }}
           </span>
           <span class="font-medium text-slate-100">{{ dept.nom }}</span>
@@ -89,11 +95,11 @@ function getCommunes(code: string) {
         </div>
       </button>
 
-      <div
-        v-if="isOpen(dept.code)"
-        class="px-5 pb-4 border-t border-white/5"
-      >
-        <div v-if="isLoading(dept.code)" class="py-6 text-center text-slate-400">
+      <div v-if="isOpen(dept.code)" class="px-5 pb-4 border-t border-white/5">
+        <div
+          v-if="isLoading(dept.code)"
+          class="py-6 text-center text-slate-400"
+        >
           <UIcon name="i-heroicons-arrow-path" class="animate-spin mr-2" />
           Chargement des communes...
         </div>
@@ -108,7 +114,9 @@ function getCommunes(code: string) {
             class="text-left px-3 py-2 rounded-lg hover:bg-white/10 transition-colors group"
             @click="navigateTo(`/communes/${commune.id}`)"
           >
-            <span class="text-slate-300 group-hover:text-indigo-400 transition-colors">
+            <span
+              class="text-slate-300 group-hover:text-indigo-400 transition-colors"
+            >
               {{ commune.nom }}
             </span>
             <span class="text-slate-600 text-xs ml-1">

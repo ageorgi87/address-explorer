@@ -1,21 +1,23 @@
 <script setup lang="ts">
-import { formatScore } from './lib/formatScore'
-import { getRating } from './lib/getRating'
+import { formatScore } from "./lib/formatScore";
+import { getRating } from "./lib/getRating";
 
 const props = defineProps<{
-  totalScore: number
-  scores: number[]
-  communeName: string
-}>()
+  totalScore: number;
+  scores: number[];
+  communeName: string;
+}>();
 
 defineEmits<{
-  replay: []
-  home: []
-}>()
+  replay: [];
+  home: [];
+}>();
 
-const maxPossibleScore = computed(() => props.scores.length * 1000)
-const percentage = computed(() => Math.round((props.totalScore / maxPossibleScore.value) * 100))
-const rating = computed(() => getRating(percentage.value))
+const maxPossibleScore = computed(() => props.scores.length * 1000);
+const percentage = computed(() =>
+  Math.round((props.totalScore / maxPossibleScore.value) * 100),
+);
+const rating = computed(() => getRating(percentage.value));
 </script>
 
 <template>
@@ -36,26 +38,42 @@ const rating = computed(() => getRating(percentage.value))
         {{ formatScore(totalScore) }}
       </div>
       <p class="text-slate-500">
-        points sur {{ formatScore(maxPossibleScore) }} possibles ({{ percentage }}%)
+        points sur {{ formatScore(maxPossibleScore) }} possibles ({{
+          percentage
+        }}%)
       </p>
     </GlassCard>
 
     <!-- Score breakdown -->
     <GlassCard padding="md" class="mb-6">
-      <h3 class="text-lg font-semibold text-slate-300 mb-4">Détail des scores</h3>
+      <h3 class="text-lg font-semibold text-slate-300 mb-4">
+        Détail des scores
+      </h3>
       <div class="grid grid-cols-5 gap-2">
         <div
           v-for="(score, index) in scores"
           :key="index"
           class="text-center p-2 rounded-lg"
-          :class="score >= 600 ? 'bg-emerald-500/20' : score > 0 ? 'bg-yellow-500/20' : 'bg-red-500/20'"
+          :class="
+            score >= 600
+              ? 'bg-emerald-500/20'
+              : score > 0
+                ? 'bg-yellow-500/20'
+                : 'bg-red-500/20'
+          "
         >
           <div class="text-xs text-slate-500 mb-1">Q{{ index + 1 }}</div>
           <div
             class="font-bold"
-            :class="score >= 600 ? 'text-emerald-400' : score > 0 ? 'text-yellow-400' : 'text-red-400'"
+            :class="
+              score >= 600
+                ? 'text-emerald-400'
+                : score > 0
+                  ? 'text-yellow-400'
+                  : 'text-red-400'
+            "
           >
-            {{ score > 0 ? `+${score}` : '0' }}
+            {{ score > 0 ? `+${score}` : "0" }}
           </div>
         </div>
       </div>

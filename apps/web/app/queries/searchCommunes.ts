@@ -1,17 +1,17 @@
-import { gql } from 'graphql-tag'
+import { gql } from "graphql-tag";
 
 export interface CommuneSearchResult {
-  id: string
-  nom: string
-  codePostal: string
+  id: string;
+  nom: string;
+  codePostal: string;
   departement: {
-    code: string
-    nom: string
-  }
+    code: string;
+    nom: string;
+  };
 }
 
 export interface SearchCommunesData {
-  searchCommunes: CommuneSearchResult[]
+  searchCommunes: CommuneSearchResult[];
 }
 
 export const SEARCH_COMMUNES_QUERY = gql`
@@ -26,4 +26,4 @@ export const SEARCH_COMMUNES_QUERY = gql`
       }
     }
   }
-`
+`;

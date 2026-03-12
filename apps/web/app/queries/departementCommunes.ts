@@ -1,17 +1,17 @@
-import gql from 'graphql-tag'
+import gql from "graphql-tag";
 
 export interface CommuneBasic {
-  id: string
-  nom: string
-  codePostal: string
+  id: string;
+  nom: string;
+  codePostal: string;
 }
 
 export interface DepartementCommunesData {
   departement: {
-    code: string
-    nom: string
-    communes: CommuneBasic[]
-  } | null
+    code: string;
+    nom: string;
+    communes: CommuneBasic[];
+  } | null;
 }
 
 export const DEPARTEMENT_COMMUNES_QUERY = gql`
@@ -26,4 +26,4 @@ export const DEPARTEMENT_COMMUNES_QUERY = gql`
       }
     }
   }
-`
+`;

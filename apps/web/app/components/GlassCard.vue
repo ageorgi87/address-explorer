@@ -1,8 +1,8 @@
 <script setup lang="ts">
 defineProps<{
-  hoverable?: boolean
-  padding?: 'sm' | 'md' | 'lg'
-}>()
+  hoverable?: boolean;
+  padding?: "sm" | "md" | "lg";
+}>();
 </script>
 
 <template>
@@ -14,7 +14,7 @@ defineProps<{
         'p-3': padding === 'sm',
         'p-5': padding === 'md' || !padding,
         'p-8': padding === 'lg',
-      }
+      },
     ]"
   >
     <slot />

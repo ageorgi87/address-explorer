@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import '~/assets/css/main.css'
+import "~/assets/css/main.css";
 </script>
 
 <template>
@@ -9,7 +9,8 @@ import '~/assets/css/main.css'
 </template>
 
 <style>
-html, body {
+html,
+body {
   background-color: #0f0f1a;
 }
 </style>
