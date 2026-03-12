@@ -129,29 +129,31 @@ useSeoMeta({
       </UContainer>
     </div>
 
-    <UContainer class="py-12 px-4 sm:px-6 lg:px-8">
-      <h2 class="text-2xl font-bold text-slate-100 mb-6">
-        Choisissez un département
-      </h2>
+    <div class="px-4 sm:px-6 lg:px-8">
+      <UContainer class="py-12">
+        <h2 class="text-2xl font-bold text-slate-100 mb-6">
+          Choisissez un département
+        </h2>
 
-      <div v-if="pending" class="space-y-3">
-        <div v-for="i in 5" :key="i" class="glass p-4">
-          <USkeleton class="h-6 w-1/3" />
+        <div v-if="pending" class="space-y-3">
+          <div v-for="i in 5" :key="i" class="glass p-4">
+            <USkeleton class="h-6 w-1/3" />
+          </div>
         </div>
-      </div>
 
-      <UAlert
-        v-else-if="error"
-        color="red"
-        icon="i-heroicons-exclamation-triangle"
-        title="Erreur de chargement"
-        :description="String(error)"
-      />
+        <UAlert
+          v-else-if="error"
+          color="red"
+          icon="i-heroicons-exclamation-triangle"
+          title="Erreur de chargement"
+          :description="String(error)"
+        />
 
-      <DepartementAccordion
-        v-else
-        :departements="departements"
-      />
-    </UContainer>
+        <DepartementAccordion
+          v-else
+          :departements="departements"
+        />
+      </UContainer>
+    </div>
   </div>
 </template>
