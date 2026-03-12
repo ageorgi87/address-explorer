@@ -1,8 +1,11 @@
-import type { Map } from 'maplibre-gl'
-import maplibregl from 'maplibre-gl'
+/**
+ * Ajuste la vue de la carte pour englober toutes les adresses.
+ */
+
+import maplibregl, { Map } from 'maplibre-gl'
 import type { Address } from './addMarkers'
 
-export const fitBounds = (map: Map, addresses: Address[]) => {
+export const fitBounds = (map: Map, addresses: Address[]): void => {
   if (addresses.length === 0) return
 
   const bounds = new maplibregl.LngLatBounds()

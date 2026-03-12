@@ -9,6 +9,13 @@ export default defineNuxtConfig({
     '@vueuse/nuxt',
   ],
 
+  // Force dark mode
+  colorMode: {
+    preference: 'dark',
+    fallback: 'dark',
+  },
+
+
   apollo: {
     clients: {
       default: {

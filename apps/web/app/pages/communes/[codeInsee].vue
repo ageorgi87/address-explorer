@@ -11,122 +11,98 @@ const { data, pending, error } = await useAsyncQuery<CommuneData>(
 
 const commune = computed(() => data.value?.commune)
 
-// Transformer les données pour la carte (max 100 adresses)
-const mapAddresses = computed(() => {
+// Transform data for quiz - all addresses with coordinates
+const quizAddresses = computed(() => {
   if (!commune.value?.voies) return []
 
   return commune.value.voies
     .flatMap(voie =>
-      (voie.numeros ?? []).map(num => ({
-        id: num.id,
-        lat: num.lat,
-        lon: num.lon,
-        label: `${num.numero}${num.suffixe ?? ''} ${voie.nom}`
-      }))
+      (voie.numeros ?? [])
+        .filter(num => num.lat && num.lon) // Only addresses with coordinates
+        .map(num => ({
+          id: num.id,
+          label: `${num.numero}${num.suffixe ?? ''} ${voie.nom}`,
+          lat: num.lat,
+          lon: num.lon,
+        }))
     )
-    .slice(0, 100)
 })
 
 useSeoMeta({
   title: () => commune.value
-    ? `${commune.value.nom} (${commune.value.codePostal}) - Explorateur`
+    ? `Quiz ${commune.value.nom} - GeoQuiz`
     : 'Chargement...',
   description: () => commune.value
-    ? `Découvrez les ${commune.value.voieCount} voies de ${commune.value.nom}`
+    ? `Testez vos connaissances sur ${commune.value.nom} (${commune.value.codePostal})`
     : '',
 })
 </script>
 
 <template>
   <UContainer class="py-8">
-    <NuxtLink
-      to="/"
-      class="text-primary-500 hover:text-primary-600 flex items-center gap-2 mb-6"
-    >
-      <UIcon name="i-heroicons-arrow-left" />
-      Retour à la recherche
-    </NuxtLink>
-
-    <div v-if="pending">
-      <USkeleton class="h-10 w-1/2 mb-4" />
-      <USkeleton class="h-6 w-1/4 mb-8" />
-      <USkeleton class="h-64 w-full" />
+    <!-- Loading -->
+    <div v-if="pending" class="space-y-6">
+      <div class="flex items-center gap-4">
+        <USkeleton class="h-8 w-8 rounded" />
+        <USkeleton class="h-8 w-48" />
+      </div>
+      <GlassCard>
+        <USkeleton class="h-32 w-full" />
+      </GlassCard>
+      <GlassCard>
+        <USkeleton class="h-[400px] w-full" />
+      </GlassCard>
     </div>
 
-    <UAlert
-      v-else-if="error"
-      color="red"
-      title="Erreur"
-      :description="String(error)"
-    />
+    <!-- Error -->
+    <div v-else-if="error" class="text-center py-12">
+      <GlassCard padding="lg">
+        <UIcon name="i-heroicons-exclamation-triangle" class="text-5xl text-red-400 mb-4" />
+        <h2 class="text-xl font-bold text-slate-100 mb-2">Erreur de chargement</h2>
+        <p class="text-slate-400 mb-6">{{ String(error) }}</p>
+        <UButton to="/" class="bg-indigo-600 hover:bg-indigo-500">
+          Retour à l'accueil
+        </UButton>
+      </GlassCard>
+    </div>
 
+    <!-- Not found -->
     <div v-else-if="!commune" class="text-center py-12">
-      <UIcon name="i-heroicons-exclamation-triangle" class="text-4xl text-yellow-500 mb-4" />
-      <h2 class="text-xl font-bold text-gray-700">Commune introuvable</h2>
-      <p class="text-gray-500 mt-2">
-        La commune avec le code "{{ codeInsee }}" n'existe pas.
-      </p>
-      <UButton to="/" class="mt-4">Retour à l'accueil</UButton>
+      <GlassCard padding="lg">
+        <UIcon name="i-heroicons-map" class="text-5xl text-yellow-400 mb-4" />
+        <h2 class="text-xl font-bold text-slate-100 mb-2">Commune introuvable</h2>
+        <p class="text-slate-400 mb-6">
+          La commune avec le code « {{ codeInsee }} » n'existe pas.
+        </p>
+        <UButton to="/" class="bg-indigo-600 hover:bg-indigo-500">
+          Retour à l'accueil
+        </UButton>
+      </GlassCard>
     </div>
 
+    <!-- Quiz -->
     <div v-else>
-      <div class="flex items-start justify-between mb-6">
-        <div>
-          <h1 class="text-3xl font-bold">{{ commune.nom }}</h1>
-          <p class="text-gray-500 mt-1">
-            {{ commune.codePostal }} - {{ commune.departement.nom }}
-          </p>
+      <!-- Commune header -->
+      <div class="mb-8 text-center">
+        <div class="inline-flex items-center gap-3 mb-2">
+          <span class="text-xs font-mono bg-indigo-500/20 text-indigo-400 px-2 py-1 rounded">
+            {{ commune.departement.code }}
+          </span>
+          <span class="text-slate-500">{{ commune.departement.nom }}</span>
         </div>
-        <UBadge color="primary" size="lg">{{ commune.departement.code }}</UBadge>
+        <h1 class="text-3xl md:text-4xl font-bold text-slate-100">
+          {{ commune.nom }}
+        </h1>
+        <p class="text-slate-500 mt-1">
+          {{ commune.codePostal }} · {{ commune.voieCount }} voies · {{ quizAddresses.length }} adresses
+        </p>
       </div>
 
-      <div class="grid grid-cols-2 gap-4 max-w-md mb-8">
-        <UCard>
-          <div class="text-3xl font-bold text-primary-500">
-            {{ commune.voieCount }}
-          </div>
-          <div class="text-gray-500">voies</div>
-        </UCard>
-        <UCard>
-          <div class="text-3xl font-bold text-green-500">
-            {{ commune.voies.length }}
-          </div>
-          <div class="text-gray-500">voies affichées</div>
-        </UCard>
-      </div>
-
-      <UCard v-if="mapAddresses.length > 0" class="mb-8">
-        <template #header>
-          <h2 class="font-semibold">Carte des adresses</h2>
-        </template>
-
-        <div class="h-[400px]">
-          <ClientOnly>
-            <AddressMap :addresses="mapAddresses" />
-            <template #fallback>
-              <div class="h-full flex items-center justify-center bg-gray-100">
-                <p class="text-gray-500">Chargement de la carte...</p>
-              </div>
-            </template>
-          </ClientOnly>
-        </div>
-      </UCard>
-
-      <UCard>
-        <template #header>
-          <h2 class="font-semibold">Voies de la commune</h2>
-        </template>
-
-        <ul class="divide-y divide-gray-200">
-          <li
-            v-for="voie in commune.voies"
-            :key="voie.id"
-            class="py-3 hover:bg-gray-50 -mx-4 px-4"
-          >
-            <span class="text-gray-900">{{ voie.nom }}</span>
-          </li>
-        </ul>
-      </UCard>
+      <!-- Quiz game -->
+      <QuizGame
+        :addresses="quizAddresses"
+        :commune-name="commune.nom"
+      />
     </div>
   </UContainer>
 </template>

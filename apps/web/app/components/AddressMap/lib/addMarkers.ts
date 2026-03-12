@@ -1,5 +1,8 @@
-import type { Map, Marker } from 'maplibre-gl'
-import maplibregl from 'maplibre-gl'
+/**
+ * Ajoute des markers sur la carte pour chaque adresse.
+ */
+
+import maplibregl, { Map, Marker } from 'maplibre-gl'
 
 export interface Address {
   id: string
@@ -12,7 +15,7 @@ export const addMarkers = (
   map: Map,
   addresses: Address[],
   markers: Marker[]
-) => {
+): void => {
   addresses.forEach(addr => {
     const marker = new maplibregl.Marker()
       .setLngLat([addr.lon, addr.lat])

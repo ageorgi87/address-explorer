@@ -1,0 +1,143 @@
+/* GeoQuiz - Design System 2026 */
+/* Glassmorphism + Dark Mode First */
+
+:root {
+  /* Background colors */
+  --geo-bg: #0f0f1a;
+  --geo-bg-elevated: #1a1a2e;
+  --geo-bg-glass: rgba(255, 255, 255, 0.05);
+
+  /* Primary palette */
+  --geo-primary: #6366f1;
+  --geo-primary-hover: #818cf8;
+
+  /* Semantic colors */
+  --geo-success: #10b981;
+  --geo-warning: #f59e0b;
+  --geo-error: #ef4444;
+
+  /* Text colors */
+  --geo-text: #f1f5f9;
+  --geo-text-muted: #94a3b8;
+  --geo-text-dimmed: #64748b;
+
+  /* Border colors */
+  --geo-border: rgba(255, 255, 255, 0.1);
+  --geo-border-hover: rgba(255, 255, 255, 0.2);
+
+  /* Radius */
+  --geo-radius: 1rem;
+  --geo-radius-lg: 1.5rem;
+}
+
+/* Base styles */
+body {
+  background-color: var(--geo-bg);
+  color: var(--geo-text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Glass card base */
+.glass {
+  background: var(--geo-bg-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--geo-border);
+  border-radius: var(--geo-radius);
+}
+
+.glass-hover {
+  transition: all 0.3s ease;
+}
+
+.glass-hover:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--geo-border-hover);
+  transform: translateY(-2px);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Gradient background subtle */
+.gradient-bg {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.05) 100%);
+}
+
+/* Score animations */
+@keyframes score-pop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.score-pop {
+  animation: score-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Pulse animation for markers */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.pulse-marker::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse-ring 1.5s ease-out infinite;
+}
+
+/* Progress bar */
+.progress-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--geo-primary), #a855f7);
+  transition: width 0.3s ease;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--geo-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--geo-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--geo-border-hover);
+}

@@ -6,9 +6,10 @@
  * - onMounted / onUnmounted : lifecycle hooks (vs useEffect return cleanup)
  * - watch({ deep: true }) : observer les changements profonds
  * - Template refs : accès au DOM via ref="mapContainer"
+ * - shallowRef : pour les objets complexes non-réactifs (Map, Marker)
  */
 
-import maplibregl from 'maplibre-gl'
+import maplibregl, { Map, Marker } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { addMarkers, type Address } from './lib/addMarkers'
 import { fitBounds } from './lib/fitBounds'
@@ -22,28 +23,32 @@ const props = defineProps<{
 // Template ref : lié à ref="mapContainer" dans le template
 const mapContainer = ref<HTMLElement | null>(null)
 
-// Instance MapLibre
-const map = ref<maplibregl.Map | null>(null)
+// Instance MapLibre - shallowRef car l'objet Map ne doit pas être réactif en profondeur
+const map = shallowRef<Map | null>(null)
 
-// Markers pour le cleanup
-const markers = ref<maplibregl.Marker[]>([])
+// Markers pour le cleanup - shallowRef car ce sont des objets MapLibre
+const markers = shallowRef<Marker[]>([])
 
 onMounted(() => {
   if (!mapContainer.value) return
 
-  map.value = new maplibregl.Map({
+  const mapInstance = new maplibregl.Map({
     container: mapContainer.value,
     style: 'https://tiles.stadiamaps.com/styles/alidade_smooth.json',
     center: props.center ?? [2.3522, 48.8566],
     zoom: props.zoom ?? 12
   })
 
-  map.value.addControl(new maplibregl.NavigationControl())
+  mapInstance.addControl(new maplibregl.NavigationControl())
 
-  addMarkers(map.value, props.addresses, markers.value)
+  map.value = mapInstance
+
+  const newMarkers: Marker[] = []
+  addMarkers(mapInstance, props.addresses, newMarkers)
+  markers.value = newMarkers
 
   if (props.addresses.length > 0) {
-    fitBounds(map.value, props.addresses)
+    fitBounds(mapInstance, props.addresses)
   }
 })
 
@@ -60,11 +65,15 @@ watch(
   () => props.addresses,
   (newAddresses) => {
     markers.value.forEach(m => m.remove())
-    markers.value = []
-    if (map.value) {
-      addMarkers(map.value, newAddresses, markers.value)
+
+    const mapInstance = map.value
+    if (mapInstance) {
+      const newMarkers: Marker[] = []
+      addMarkers(mapInstance, newAddresses, newMarkers)
+      markers.value = newMarkers
+
       if (newAddresses.length > 0) {
-        fitBounds(map.value, newAddresses)
+        fitBounds(mapInstance, newAddresses)
       }
     }
   },
