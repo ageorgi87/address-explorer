@@ -1,124 +1,139 @@
-# API GraphQL - Adresse Explorer
+# GeoQuiz API
 
-API GraphQL pour explorer les adresses françaises (BAN).
+API GraphQL pour l'application GeoQuiz, exposant les données géographiques françaises.
 
 ## Stack
 
-| Outil | Rôle |
-|-------|------|
+| Technologie | Rôle |
+|-------------|------|
+| Node.js 20+ | Runtime |
 | GraphQL Yoga | Serveur GraphQL |
-| Prisma | ORM / accès base de données |
-| GraphQL Code Generator | Génération des types TypeScript |
+| Prisma | ORM |
 | PostgreSQL | Base de données |
+| TypeScript | Langage |
 
-## Structure
+## Configuration
 
-```
-src/
-├── index.ts          # Point d'entrée du serveur
-├── lib/
-│   ├── prisma.ts     # Client Prisma (singleton)
-│   ├── isDev.ts      # Constante isDev
-│   └── graphiql.ts   # Config GraphiQL
-├── schema/           # Définitions GraphQL (template strings TS)
-│   ├── departement.ts
-│   ├── commune.ts
-│   └── voie.ts
-├── resolvers/        # Implémentation des resolvers
-│   ├── departement.ts
-│   ├── commune.ts
-│   └── voie.ts
-└── generated/        # Fichiers générés (ne pas éditer)
-    ├── context.ts    # Type du contexte GraphQL
-    └── graphql.ts    # Types générés depuis les schemas
+Créer un fichier `.env` à la racine de `apps/api` :
+
+```env
+DATABASE_URL="postgresql://user:password@localhost:5432/geoquiz"
 ```
 
-## Workflow de développement
-
-### Ajouter/modifier un type GraphQL
-
-1. Modifier le fichier `.ts` correspondant dans `src/schema/`
-2. Regénérer les types : `npm run codegen`
-3. Implémenter/adapter les resolvers dans `src/resolvers/`
-4. TypeScript te guide : les erreurs indiquent ce qui manque
-
-### Ajouter un nouveau type
-
-1. Créer `src/schema/montype.ts` avec `export const montypeTypeDefs = /* GraphQL */ \`...\``
-2. Créer `src/resolvers/montype.ts`
-3. Importer dans `src/index.ts`
-4. `npm run codegen`
-
-## Scripts
+## Lancement
 
 ```bash
 # Développement (hot reload)
-npm run dev
+pnpm dev
 
-# Générer les types TypeScript
-npm run codegen
-
-# Build production
-npm run build
+# Production
+pnpm build && pnpm start
 ```
 
-## Scripts Prisma
+L'API sera disponible sur `http://localhost:4000/graphql` avec GraphiQL en mode développement.
+
+## Base de données
+
+### Migrations
 
 ```bash
+# Appliquer le schéma Prisma à la base
+pnpm db:push
+
 # Générer le client Prisma
-npm run db:generate
+pnpm db:generate
+```
 
-# Créer une migration
-npm run db:migrate
+### Modèles
 
-# Ouvrir Prisma Studio (GUI)
-npm run db:studio
+| Modèle | Description |
+|--------|-------------|
+| `Departement` | Département français (code, nom) |
+| `Commune` | Commune avec code postal et lien vers département |
+| `Voie` | Rue/avenue/etc. appartenant à une commune |
+| `Numero` | Numéro d'adresse avec coordonnées GPS (lat, lon) |
+
+### Import des données
+
+Les données proviennent de la [Base Adresse Nationale (BAN)](https://adresse.data.gouv.fr/).
+
+## Schema GraphQL
+
+### Queries principales
+
+```graphql
+# Liste des départements avec nombre de communes
+query {
+  departements {
+    code
+    nom
+    communeCount
+  }
+}
+
+# Détails d'une commune avec ses voies et adresses
+query {
+  commune(codeInsee: "67482") {
+    nom
+    codePostal
+    voies {
+      nom
+      numeros {
+        numero
+        lat
+        lon
+      }
+    }
+  }
+}
+
+# Recherche de communes
+query {
+  searchCommunes(search: "Stras", first: 10) {
+    id
+    nom
+    codePostal
+  }
+}
 ```
 
 ## Architecture Schema-First
 
-Le schema GraphQL (dans `src/schema/*.ts`) est la **source de vérité**.
+Le schema GraphQL est la source de vérité. Les types TypeScript sont générés automatiquement.
 
 ```
-schema/*.ts  →  codegen  →  generated/graphql.ts  →  resolvers/*.ts
-     ↑                                                      ↓
- Tu écris ici                                        TypeScript te guide
+src/
+├── config/          # Configuration (GraphiQL)
+├── generated/       # Types générés (ne pas éditer)
+├── lib/             # Utilitaires (prisma client)
+├── resolvers/       # Resolvers GraphQL par domaine
+├── schema/          # Définitions de types GraphQL (SDL)
+└── index.ts         # Point d'entrée du serveur
 ```
 
-### Pourquoi schema-first ?
+### Ajouter un nouveau type GraphQL
 
-- Le schema est lisible (SDL standard)
-- Imports explicites (pas de glob)
-- Types TypeScript générés automatiquement
-- Mappers Prisma pour lier GraphQL aux types DB
+1. Créer le fichier de schéma dans `src/schema/montype.ts`
+2. Créer le resolver correspondant dans `src/resolvers/montype.ts`
+3. Importer et merger dans `src/index.ts`
+4. Regénérer les types : `pnpm codegen`
 
-## Configuration
+## Scripts
 
-### codegen.ts
-
-```typescript
-const config: CodegenConfig = {
-  schema: 'src/schema/*.ts',
-  generates: {
-    'src/generated/graphql.ts': {
-      plugins: ['typescript', 'typescript-resolvers'],
-      config: {
-        mappers: {
-          Departement: '@prisma/client#Departement as DepartementModel',
-          Commune: '@prisma/client#Commune as CommuneModel',
-          Voie: '@prisma/client#Voie as VoieModel',
-        },
-        contextType: './context.js#GraphQLContext',
-      },
-    },
-  },
-}
+```bash
+pnpm dev          # Développement avec hot reload
+pnpm build        # Build de production
+pnpm start        # Lancer le build
+pnpm codegen      # Générer les types TypeScript
+pnpm db:generate  # Générer le client Prisma
+pnpm db:push      # Appliquer le schéma à la base
+pnpm db:studio    # Ouvrir Prisma Studio (GUI)
 ```
 
-### Variables d'environnement
+## Variables d'environnement
 
-```env
-DATABASE_URL=postgresql://...
-PORT=4000
-NODE_ENV=development
-```
+| Variable | Description | Défaut |
+|----------|-------------|--------|
+| `DATABASE_URL` | URL de connexion PostgreSQL | - |
+| `PORT` | Port du serveur | 4000 |
+| `NODE_ENV` | Environnement | development |
