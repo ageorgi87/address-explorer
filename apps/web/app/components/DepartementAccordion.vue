@@ -8,7 +8,6 @@ const props = defineProps<{
 
 const { clients } = useApollo()
 
-// State
 const openDepts = ref<Set<string>>(new Set())
 const communesCache = ref<Record<string, CommuneBasic[]>>({})
 const loadingDepts = ref<Set<string>>(new Set())
@@ -16,12 +15,10 @@ const loadingDepts = ref<Set<string>>(new Set())
 async function toggleDepartement(code: string) {
   if (openDepts.value.has(code)) {
     openDepts.value.delete(code)
-    // Force reactivity
     openDepts.value = new Set(openDepts.value)
   } else {
     openDepts.value.add(code)
     openDepts.value = new Set(openDepts.value)
-    // Load communes if not cached
     await loadCommunes(code)
   }
 }
@@ -70,7 +67,6 @@ function getCommunes(code: string) {
       :key="dept.code"
       class="glass overflow-hidden"
     >
-      <!-- Header / Trigger -->
       <button
         class="w-full px-5 py-4 flex items-center justify-between hover:bg-white/5 transition-colors"
         @click="toggleDepartement(dept.code)"
@@ -93,18 +89,15 @@ function getCommunes(code: string) {
         </div>
       </button>
 
-      <!-- Content -->
       <div
         v-if="isOpen(dept.code)"
         class="px-5 pb-4 border-t border-white/5"
       >
-        <!-- Loading state -->
         <div v-if="isLoading(dept.code)" class="py-6 text-center text-slate-400">
           <UIcon name="i-heroicons-arrow-path" class="animate-spin mr-2" />
           Chargement des communes...
         </div>
 
-        <!-- Communes grid -->
         <div
           v-else-if="getCommunes(dept.code).length > 0"
           class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 pt-4"
@@ -124,7 +117,6 @@ function getCommunes(code: string) {
           </button>
         </div>
 
-        <!-- Empty state -->
         <div v-else class="py-6 text-center text-slate-500">
           Aucune commune trouvée
         </div>

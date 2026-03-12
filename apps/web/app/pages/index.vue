@@ -10,7 +10,6 @@ const totalCommunes = computed(() =>
   departements.value.reduce((sum, dept) => sum + dept.communeCount, 0),
 )
 
-// Search
 const search = ref('')
 const searchResults = ref<CommuneSearchResult[]>([])
 const searchPending = ref(false)
@@ -50,7 +49,6 @@ useSeoMeta({
 
 <template>
   <div class="min-h-screen">
-    <!-- Hero Section -->
     <div class="gradient-bg border-b border-white/5">
       <UContainer class="py-16 text-center">
         <h1 class="text-5xl font-bold tracking-tight mb-4">
@@ -60,7 +58,6 @@ useSeoMeta({
           Testez vos connaissances géographiques
         </p>
 
-        <!-- Search -->
         <div class="max-w-xl mx-auto relative">
           <div class="glass p-2">
             <UInput
@@ -81,7 +78,6 @@ useSeoMeta({
             Tape au moins 2 caractères...
           </p>
 
-          <!-- Search Results Dropdown -->
           <div
             v-if="search.length >= 2"
             class="absolute top-full left-0 right-0 mt-2 glass p-2 z-50"
@@ -116,7 +112,6 @@ useSeoMeta({
           </div>
         </div>
 
-        <!-- Stats -->
         <div class="flex justify-center gap-6 mt-12">
           <GlassCard padding="md" class="text-center min-w-[140px]">
             <div class="text-3xl font-bold text-indigo-400">
@@ -134,7 +129,6 @@ useSeoMeta({
       </UContainer>
     </div>
 
-    <!-- Departments Accordion -->
     <UContainer class="py-12">
       <h2 class="text-2xl font-bold text-slate-100 mb-6">
         Choisissez un département

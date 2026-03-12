@@ -5,7 +5,7 @@ import { makeExecutableSchema } from "@graphql-tools/schema";
 
 import { prisma } from "./lib/prisma.js";
 import { isDev } from "./lib/isDev.js";
-import { GRAPHIQL_CONFIG } from "./lib/graphiql.js";
+import { GRAPHIQL_CONFIG } from "./config/graphiql.js";
 import type { GraphQLContext } from "./generated/context.js";
 
 import { departementTypeDefs } from "./schema/departement.js";

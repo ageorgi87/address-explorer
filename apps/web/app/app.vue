@@ -1,5 +1,4 @@
 <script setup lang="ts">
-// Import global styles
 import '~/assets/css/main.css'
 </script>
 
@@ -10,7 +9,6 @@ import '~/assets/css/main.css'
 </template>
 
 <style>
-/* Ensure dark background on html/body */
 html, body {
   background-color: #0f0f1a;
 }

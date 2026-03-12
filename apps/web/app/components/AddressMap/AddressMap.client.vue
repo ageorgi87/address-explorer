@@ -1,14 +1,4 @@
 <script setup lang="ts">
-/**
- * Carte interactive avec MapLibre GL.
- *
- * Concepts Vue démontrés :
- * - onMounted / onUnmounted : lifecycle hooks (vs useEffect return cleanup)
- * - watch({ deep: true }) : observer les changements profonds
- * - Template refs : accès au DOM via ref="mapContainer"
- * - shallowRef : pour les objets complexes non-réactifs (Map, Marker)
- */
-
 import maplibregl, { Map, Marker } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { addMarkers, type Address } from './lib/addMarkers'
@@ -20,13 +10,8 @@ const props = defineProps<{
   zoom?: number
 }>()
 
-// Template ref : lié à ref="mapContainer" dans le template
 const mapContainer = ref<HTMLElement | null>(null)
-
-// Instance MapLibre - shallowRef car l'objet Map ne doit pas être réactif en profondeur
 const map = shallowRef<Map | null>(null)
-
-// Markers pour le cleanup - shallowRef car ce sont des objets MapLibre
 const markers = shallowRef<Marker[]>([])
 
 onMounted(() => {
@@ -52,7 +37,6 @@ onMounted(() => {
   }
 })
 
-// Cleanup obligatoire pour éviter les memory leaks
 onUnmounted(() => {
   markers.value.forEach(m => m.remove())
   markers.value = []
@@ -60,7 +44,6 @@ onUnmounted(() => {
   map.value = null
 })
 
-// Réagir aux changements des addresses
 watch(
   () => props.addresses,
   (newAddresses) => {

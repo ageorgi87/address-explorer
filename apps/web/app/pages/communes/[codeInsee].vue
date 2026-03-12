@@ -11,14 +11,13 @@ const { data, pending, error } = await useAsyncQuery<CommuneData>(
 
 const commune = computed(() => data.value?.commune)
 
-// Transform data for quiz - all addresses with coordinates
 const quizAddresses = computed(() => {
   if (!commune.value?.voies) return []
 
   return commune.value.voies
     .flatMap(voie =>
       (voie.numeros ?? [])
-        .filter(num => num.lat && num.lon) // Only addresses with coordinates
+        .filter(num => num.lat && num.lon)
         .map(num => ({
           id: num.id,
           label: `${num.numero}${num.suffixe ?? ''} ${voie.nom}`,
@@ -40,7 +39,6 @@ useSeoMeta({
 
 <template>
   <UContainer class="py-8">
-    <!-- Loading -->
     <div v-if="pending" class="space-y-6">
       <div class="flex items-center gap-4">
         <USkeleton class="h-8 w-8 rounded" />
@@ -54,7 +52,6 @@ useSeoMeta({
       </GlassCard>
     </div>
 
-    <!-- Error -->
     <div v-else-if="error" class="text-center py-12">
       <GlassCard padding="lg">
         <UIcon name="i-heroicons-exclamation-triangle" class="text-5xl text-red-400 mb-4" />
@@ -66,7 +63,6 @@ useSeoMeta({
       </GlassCard>
     </div>
 
-    <!-- Not found -->
     <div v-else-if="!commune" class="text-center py-12">
       <GlassCard padding="lg">
         <UIcon name="i-heroicons-map" class="text-5xl text-yellow-400 mb-4" />
@@ -80,9 +76,7 @@ useSeoMeta({
       </GlassCard>
     </div>
 
-    <!-- Quiz -->
     <div v-else>
-      <!-- Commune header -->
       <div class="mb-8 text-center">
         <div class="inline-flex items-center gap-3 mb-2">
           <span class="text-xs font-mono bg-indigo-500/20 text-indigo-400 px-2 py-1 rounded">
@@ -98,7 +92,6 @@ useSeoMeta({
         </p>
       </div>
 
-      <!-- Quiz game -->
       <QuizGame
         :addresses="quizAddresses"
         :commune-name="commune.nom"
